@@ -7,6 +7,10 @@ module.exports = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        serif: ['"Cormorant Garamond"', 'Georgia', 'serif'],
+        sans: ['Outfit', 'system-ui', 'sans-serif'],
+      },
       borderRadius: {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
@@ -15,6 +19,20 @@ module.exports = {
       colors: {
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
+        brand: {
+          bg: '#FAFAF7',
+          surface: '#FFFFFF',
+          primary: '#E07A5F',
+          'primary-dark': '#C96B52',
+          secondary: '#81B29A',
+          'secondary-dark': '#3D6A53',
+          accent: '#F2CC8F',
+          text: '#2D3047',
+          'text-soft': '#5C5F73',
+          line: '#E8E6DF',
+          err: '#D36060',
+          ok: '#6A994E',
+        },
         card: {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))'
