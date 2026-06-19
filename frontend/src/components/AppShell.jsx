@@ -22,11 +22,11 @@ export default function AppShell() {
         className="sticky top-0 z-40 backdrop-blur-xl bg-[#FAFAF7]/80 border-b border-brand-line"
       >
         <div className="max-w-5xl mx-auto px-5 md:px-8 py-4 flex items-center justify-between">
-          <Link to="/" className="flex items-baseline gap-2" data-testid="logo-link">
-            <span className="font-serif-display text-3xl font-semibold text-brand-text leading-none">
-              what can i eat
+          <Link to="/" className="flex items-baseline gap-1" data-testid="logo-link">
+            <span className="font-serif-display text-3xl font-semibold text-brand-text leading-none lowercase">
+              yumaura
             </span>
-            <span className="text-brand-primary font-serif-display text-3xl leading-none">?</span>
+            <span className="text-brand-primary font-serif-display text-3xl leading-none">.</span>
           </Link>
           <nav className="hidden md:flex items-center gap-1">
             {navItems.map((n) => (

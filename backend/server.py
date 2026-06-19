@@ -139,7 +139,7 @@ async def _run_chat(system: str, user_msg: UserMessage) -> str:
 # ---------- Endpoints ----------
 @api_router.get("/")
 async def root():
-    return {"message": "What Can I Eat? API"}
+    return {"message": "Yumaura API"}
 
 
 @api_router.post("/scan", response_model=ScanResponse)
