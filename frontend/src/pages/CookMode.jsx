@@ -104,9 +104,9 @@ export default function CookMode() {
         </Button>
 
         <div className="hidden sm:flex gap-1.5">
-          {steps.map((_, i) => (
+          {steps.map((s, i) => (
             <span
-              key={i}
+              key={`${i}-${String(s).slice(0, 12)}`}
               className={`w-2 h-2 rounded-full transition-colors ${
                 i === step ? "bg-brand-primary" : i < step ? "bg-brand-secondary" : "bg-brand-line"
               }`}

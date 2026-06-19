@@ -23,7 +23,9 @@ function useLocalStorageSync(key, value, serializer = JSON.stringify) {
     try {
       localStorage.setItem(key, serializer(value));
     } catch (err) {
-      console.warn(`Failed to persist ${key}:`, err);
+      if (process.env.NODE_ENV !== "production") {
+        console.warn(`Failed to persist ${key}:`, err);
+      }
     }
   }, [key, value, serializer]);
 }
