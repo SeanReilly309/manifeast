@@ -22,10 +22,8 @@ function useLocalStorageSync(key, value, serializer = JSON.stringify) {
   useEffect(() => {
     try {
       localStorage.setItem(key, serializer(value));
-    } catch (err) {
-      if (process.env.NODE_ENV !== "production") {
-        console.warn(`Failed to persist ${key}:`, err);
-      }
+    } catch {
+      /* localStorage may be full, disabled, or unavailable — silently skip */
     }
   }, [key, value, serializer]);
 }
