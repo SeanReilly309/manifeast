@@ -191,6 +191,39 @@ async def scan_fridge(req: ScanRequest):
     return ScanResponse(id=scan_id, ingredients=cleaned)
 
 
+def _str_list(values) -> List[str]:
+    return [str(x).lower() for x in values or [] if isinstance(x, str)]
+
+
+def _build_nutrition(raw: dict) -> "Nutrition":
+    n = raw or {}
+    return Nutrition(
+        calories=int(n.get("calories", 0) or 0),
+        protein_g=int(n.get("protein_g", 0) or 0),
+        fat_g=int(n.get("fat_g", 0) or 0),
+        carbs_g=int(n.get("carbs_g", 0) or 0),
+    )
+
+
+def _build_recipe(r: dict) -> Optional["Recipe"]:
+    try:
+        return Recipe(
+            id=str(uuid.uuid4()),
+            title=str(r.get("title", "Untitled")).strip(),
+            emoji=str(r.get("emoji", "🍽️")).strip() or "🍽️",
+            difficulty=str(r.get("difficulty", "easy")).strip().lower(),
+            time_minutes=int(r.get("time_minutes", 15)),
+            description=str(r.get("description", "")).strip(),
+            ingredients_used=_str_list(r.get("ingredients_used")),
+            missing_ingredients=_str_list(r.get("missing_ingredients")),
+            instructions=[str(x) for x in r.get("instructions", []) if isinstance(x, str)],
+            servings=int(r.get("servings", 1) or 1),
+            nutrition=_build_nutrition(r.get("nutrition")),
+        )
+    except Exception:
+        return None
+
+
 @api_router.post("/suggest", response_model=SuggestResponse)
 async def suggest_recipes(req: SuggestRequest):
     if not req.ingredients:
@@ -225,30 +258,9 @@ async def suggest_recipes(req: SuggestRequest):
         data = _extract_json(raw)
         raw_recipes = data.get("recipes", []) if isinstance(data, dict) else []
         for r in raw_recipes:
-            try:
-                n = r.get("nutrition") or {}
-                recipes.append(
-                    Recipe(
-                        id=str(uuid.uuid4()),
-                        title=str(r.get("title", "Untitled")).strip(),
-                        emoji=str(r.get("emoji", "🍽️")).strip() or "🍽️",
-                        difficulty=str(r.get("difficulty", "easy")).strip().lower(),
-                        time_minutes=int(r.get("time_minutes", 15)),
-                        description=str(r.get("description", "")).strip(),
-                        ingredients_used=[str(x).lower() for x in r.get("ingredients_used", []) if isinstance(x, str)],
-                        missing_ingredients=[str(x).lower() for x in r.get("missing_ingredients", []) if isinstance(x, str)],
-                        instructions=[str(x) for x in r.get("instructions", []) if isinstance(x, str)],
-                        servings=int(r.get("servings", 1) or 1),
-                        nutrition=Nutrition(
-                            calories=int(n.get("calories", 0) or 0),
-                            protein_g=int(n.get("protein_g", 0) or 0),
-                            fat_g=int(n.get("fat_g", 0) or 0),
-                            carbs_g=int(n.get("carbs_g", 0) or 0),
-                        ),
-                    )
-                )
-            except Exception:
-                continue
+            built = _build_recipe(r)
+            if built is not None:
+                recipes.append(built)
     except Exception as e:
         logging.exception("suggest failed")
         raise HTTPException(status_code=500, detail=f"Recipe suggestion failed: {e}")

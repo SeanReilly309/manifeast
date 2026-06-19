@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { detectDefaultCountry } from "../lib/retailers";
 
 const AppContext = createContext(null);
@@ -8,46 +8,43 @@ const LS_RECIPES = "wcie_recipes";
 const LS_SHOPPING = "wcie_shopping";
 const LS_COUNTRY = "wcie_country";
 
+function readJSON(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function useLocalStorageSync(key, value, serializer = JSON.stringify) {
+  useEffect(() => {
+    try {
+      localStorage.setItem(key, serializer(value));
+    } catch (err) {
+      console.warn(`Failed to persist ${key}:`, err);
+    }
+  }, [key, value, serializer]);
+}
+
 export function AppProvider({ children }) {
-  const [ingredients, setIngredients] = useState(() => {
-    try {
-      const raw = localStorage.getItem(LS_INGREDIENTS);
-      return raw ? JSON.parse(raw) : [];
-    } catch { return []; }
-  });
-  const [recipes, setRecipes] = useState(() => {
-    try {
-      const raw = localStorage.getItem(LS_RECIPES);
-      return raw ? JSON.parse(raw) : [];
-    } catch { return []; }
-  });
-  const [shoppingList, setShoppingList] = useState(() => {
-    try {
-      const raw = localStorage.getItem(LS_SHOPPING);
-      return raw ? JSON.parse(raw) : [];
-    } catch { return []; }
-  });
+  const [ingredients, setIngredients] = useState(() => readJSON(LS_INGREDIENTS, []));
+  const [recipes, setRecipes] = useState(() => readJSON(LS_RECIPES, []));
+  const [shoppingList, setShoppingList] = useState(() => readJSON(LS_SHOPPING, []));
   const [country, setCountry] = useState(() => {
     try {
-      const raw = localStorage.getItem(LS_COUNTRY);
-      return raw || detectDefaultCountry();
-    } catch { return "GB"; }
+      return localStorage.getItem(LS_COUNTRY) || detectDefaultCountry();
+    } catch {
+      return "GB";
+    }
   });
 
-  useEffect(() => {
-    localStorage.setItem(LS_INGREDIENTS, JSON.stringify(ingredients));
-  }, [ingredients]);
-  useEffect(() => {
-    localStorage.setItem(LS_RECIPES, JSON.stringify(recipes));
-  }, [recipes]);
-  useEffect(() => {
-    localStorage.setItem(LS_SHOPPING, JSON.stringify(shoppingList));
-  }, [shoppingList]);
-  useEffect(() => {
-    localStorage.setItem(LS_COUNTRY, country);
-  }, [country]);
+  useLocalStorageSync(LS_INGREDIENTS, ingredients);
+  useLocalStorageSync(LS_RECIPES, recipes);
+  useLocalStorageSync(LS_SHOPPING, shoppingList);
+  useLocalStorageSync(LS_COUNTRY, country, String);
 
-  const addShoppingItems = (items) => {
+  const addShoppingItems = useCallback((items) => {
     setShoppingList((prev) => {
       const set = new Set(prev.map((i) => i.name));
       const merged = [...prev];
@@ -59,39 +56,47 @@ export function AppProvider({ children }) {
       }
       return merged;
     });
-  };
+  }, []);
 
-  const toggleShoppingItem = (name) => {
+  const toggleShoppingItem = useCallback((name) => {
     setShoppingList((prev) =>
       prev.map((i) => (i.name === name ? { ...i, checked: !i.checked } : i))
     );
-  };
+  }, []);
 
-  const removeShoppingItem = (name) => {
+  const removeShoppingItem = useCallback((name) => {
     setShoppingList((prev) => prev.filter((i) => i.name !== name));
-  };
+  }, []);
 
-  const clearShopping = () => setShoppingList([]);
+  const clearShopping = useCallback(() => setShoppingList([]), []);
 
-  return (
-    <AppContext.Provider
-      value={{
-        ingredients,
-        setIngredients,
-        recipes,
-        setRecipes,
-        shoppingList,
-        addShoppingItems,
-        toggleShoppingItem,
-        removeShoppingItem,
-        clearShopping,
-        country,
-        setCountry,
-      }}
-    >
-      {children}
-    </AppContext.Provider>
+  const value = useMemo(
+    () => ({
+      ingredients,
+      setIngredients,
+      recipes,
+      setRecipes,
+      shoppingList,
+      addShoppingItems,
+      toggleShoppingItem,
+      removeShoppingItem,
+      clearShopping,
+      country,
+      setCountry,
+    }),
+    [
+      ingredients,
+      recipes,
+      shoppingList,
+      country,
+      addShoppingItems,
+      toggleShoppingItem,
+      removeShoppingItem,
+      clearShopping,
+    ]
   );
+
+  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
 
 export const useApp = () => {

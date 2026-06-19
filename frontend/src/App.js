@@ -9,6 +9,13 @@ import Results from "@/pages/Results";
 import RecipeDetail from "@/pages/RecipeDetail";
 import ShoppingList from "@/pages/ShoppingList";
 
+const TOAST_OPTIONS = {
+  style: {
+    fontFamily: "Outfit, system-ui, sans-serif",
+    borderRadius: "16px",
+  },
+};
+
 function App() {
   return (
     <div className="App">
@@ -24,16 +31,7 @@ function App() {
             </Route>
           </Routes>
         </BrowserRouter>
-        <Toaster
-          position="top-center"
-          richColors
-          toastOptions={{
-            style: {
-              fontFamily: "Outfit, system-ui, sans-serif",
-              borderRadius: "16px",
-            },
-          }}
-        />
+        <Toaster position="top-center" richColors toastOptions={TOAST_OPTIONS} />
       </AppProvider>
     </div>
   );
