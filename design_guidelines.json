@@ -1,0 +1,102 @@
+{
+  "theme": "Light",
+  "archetype": "1 (Organic & Earthy)",
+  "vibe": "Warm/cozy kitchen (earthy tones, food-magazine feel), editorial, inviting, tactile.",
+  "colors": {
+    "background": "#FAFAF7",
+    "surface": "#FFFFFF",
+    "primary": "#E07A5F",
+    "secondary": "#81B29A",
+    "accent": "#F2CC8F",
+    "text_primary": "#2D3047",
+    "text_secondary": "#5C5F73",
+    "border": "#E8E6DF",
+    "error": "#D36060",
+    "success": "#6A994E"
+  },
+  "typography": {
+    "headings_font": "Cormorant Garamond",
+    "body_font": "Outfit",
+    "h1": "text-4xl sm:text-5xl tracking-tight leading-tight font-semibold text-[#2D3047] font-serif",
+    "h2": "text-2xl sm:text-3xl tracking-tight leading-snug font-medium text-[#2D3047] font-serif",
+    "h3": "text-xl sm:text-2xl font-medium text-[#2D3047] font-serif",
+    "body": "text-base leading-relaxed text-[#5C5F73] font-sans",
+    "label": "text-xs tracking-[0.15em] uppercase font-bold text-[#E07A5F] font-sans",
+    "button": "text-base font-semibold tracking-wide font-sans"
+  },
+  "layout_and_spacing": {
+    "philosophy": "Generous spacing, magazine-like structured layout, mobile-first design.",
+    "container_padding": "px-6 py-8 md:px-12 md:py-16",
+    "grid_system": "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-10",
+    "card_radius": "rounded-2xl",
+    "button_radius": "rounded-full"
+  },
+  "components": {
+    "buttons": "Shadcn Button heavily customized. Primary: bg-[#E07A5F] text-white hover:bg-[#C96B52] shadow-[0_4px_14px_rgba(224,122,95,0.3)]. Secondary: bg-transparent border border-[#E07A5F] text-[#E07A5F] hover:bg-[#E07A5F]/10.",
+    "cards": "Cardless or subtle surfaces. Background #FFFFFF, 1px subtle border #E8E6DF, no heavy drop shadow. Use hover:-translate-y-1 hover:shadow-lg transition-all.",
+    "inputs": "Minimalist inputs. bg-[#FAFAF7] border-b-2 border-[#E8E6DF] focus:border-[#E07A5F] rounded-none focus:ring-0 px-0 py-2 text-lg font-sans text-[#2D3047] transition-colors outline-none w-full.",
+    "chips": "Rounded-full px-4 py-1.5 text-sm font-medium inline-flex items-center gap-1. Detected/Available items: bg-[#81B29A]/15 text-[#3D6A53]. Missing: bg-[#E8E6DF] text-[#5C5F73].",
+    "navigation": "Sticky bottom nav on mobile for app-feel (glassmorphism: backdrop-blur-xl bg-[#FAFAF7]/80 border-t border-[#E8E6DF]). Sticky top nav on desktop."
+  },
+  "motion": {
+    "hover": "Subtle lifts (-translate-y-1) for cards, scale up (scale-105) for images within overflow-hidden containers.",
+    "transitions": "transition-all duration-300 ease-out",
+    "loading": "Use an organic pulsing effect or a gentle fade-in skeleton loader."
+  },
+  "icons": {
+    "library": "lucide-react",
+    "style": "stroke-[1.5] for a lighter, more elegant feel matching the serif typography."
+  },
+  "media": {
+    "hero_backgrounds": [
+      {
+        "url": "https://images.unsplash.com/photo-1590779033100-9f60a05a013d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NjZ8MHwxfHNlYXJjaHwyfHxmcmVzaCUyMHZlZ2V0YWJsZXMlMjBjb29raW5nJTIwaW5ncmVkaWVudHN8ZW58MHx8fHwxNzgxODc1OTI1fDA&ixlib=rb-4.1.0&q=85",
+        "category": "hero",
+        "description": "sliced carrots and green vegetable - use as abstract soft background for landing"
+      },
+      {
+        "url": "https://images.pexels.com/photos/5418661/pexels-photo-5418661.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "category": "hero",
+        "description": "top view fresh vegetables - landing page background or ingredient scan placeholder"
+      }
+    ],
+    "recipes": [
+      {
+        "url": "https://images.pexels.com/photos/13294537/pexels-photo-13294537.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "category": "recipe_card",
+        "description": "creamy chicken pasta dish"
+      },
+      {
+        "url": "https://images.pexels.com/photos/33515064/pexels-photo-33515064.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "category": "recipe_card",
+        "description": "sliced chicken breast over creamy pasta"
+      }
+    ],
+    "ui_states": [
+      {
+        "url": "https://images.pexels.com/photos/31485991/pexels-photo-31485991.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "category": "scan_placeholder",
+        "description": "Open refrigerator filled with drinks, fruits, and dairy products"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1536353284924-9220c464e262?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxOTF8MHwxfHNlYXJjaHwyfHxvcGVuJTIwZnJpZGdlJTIwaW50ZXJpb3IlMjBmb29kfGVufDB8fHx8MTc4MTg3NTkyNXww&ixlib=rb-4.1.0&q=85",
+        "category": "scan_placeholder",
+        "description": "Silver French-door refrigerator interior"
+      },
+      {
+        "url": "https://images.pexels.com/photos/8142046/pexels-photo-8142046.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "category": "empty_state",
+        "description": "Elegant and modern kitchen with marble countertops - used for empty states"
+      }
+    ]
+  },
+  "specific_instructions_to_main_agent": [
+    "Build a mobile-first UI with an editorial feel. Use a sticky bottom navigation bar or a clean top header reflecting a modern food app.",
+    "Import and use 'Cormorant Garamond' for all headings (font-serif) and 'Outfit' for all body text (font-sans).",
+    "The hero section should have 'Take fridge photo' as a prominent primary CTA button and 'Add ingredients manually' as a secondary button.",
+    "When displaying ingredients, use the chip style. Color code available ingredients in Sage Green (#81B29A) and missing ingredients in neutral Grey (#E8E6DF).",
+    "Implement the recipe card as a highly visual, borderless card with large imagery, time, and difficulty badges.",
+    "Ensure the layout feels 'editorial'—use negative space well and avoid cramming elements.",
+    "All interactive elements MUST include data-testid attributes (e.g., data-testid='take-photo-btn', data-testid='recipe-card') for robust automated testing."
+  ]
+}
