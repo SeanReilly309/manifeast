@@ -87,6 +87,8 @@ export const detectDefaultCountry = () => {
   try {
     const lang = (navigator.language || "en-GB").toUpperCase();
     if (lang.endsWith("-US") || lang === "EN-US") return "US";
-  } catch { /* ignore */ }
+  } catch (err) {
+    console.warn("detectDefaultCountry failed, defaulting to GB:", err);
+  }
   return "GB";
 };

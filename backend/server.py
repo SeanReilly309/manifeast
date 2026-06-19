@@ -161,13 +161,13 @@ async def scan_fridge(req: ScanRequest):
     image = ImageContent(image_base64=b64)
     user_msg = UserMessage(text="Identify all edible ingredients in this image.", file_contents=[image])
 
+    cleaned: List[str] = []
     try:
         raw = await _run_chat(system, user_msg)
         data = _extract_json(raw)
         ingredients = data.get("ingredients", []) if isinstance(data, dict) else []
         # normalize
         seen = set()
-        cleaned = []
         for it in ingredients:
             if not isinstance(it, str):
                 continue
@@ -219,11 +219,11 @@ async def suggest_recipes(req: SuggestRequest):
     )
     user_msg = UserMessage(text=user_text)
 
+    recipes: List[Recipe] = []
     try:
         raw = await _run_chat(system, user_msg)
         data = _extract_json(raw)
         raw_recipes = data.get("recipes", []) if isinstance(data, dict) else []
-        recipes: List[Recipe] = []
         for r in raw_recipes:
             try:
                 n = r.get("nutrition") or {}

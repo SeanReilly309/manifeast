@@ -90,7 +90,7 @@ export default function Home() {
               n: "02",
               icon: Sparkles,
               title: "We read the shelf",
-              text: "Our AI spots the ingredients &mdash; eggs, pasta, that lonely tomato &mdash; in seconds.",
+              text: "Our AI spots the ingredients \u2014 eggs, pasta, that lonely tomato \u2014 in seconds.",
             },
             {
               n: "03",
@@ -115,7 +115,7 @@ export default function Home() {
                 <h3 className="font-serif-display text-2xl font-medium text-brand-text mb-2">
                   {s.title}
                 </h3>
-                <p className="text-brand-text-soft text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: s.text }} />
+                <p className="text-brand-text-soft text-sm leading-relaxed">{s.text}</p>
               </div>
             );
           })}

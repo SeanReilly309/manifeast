@@ -170,7 +170,7 @@ export default function RecipeDetail() {
         </div>
         <ol className="md:col-span-2 space-y-5" data-testid="instruction-list">
           {(recipe.instructions || []).map((step, idx2) => (
-            <li key={idx2} className="flex gap-5">
+            <li key={`${idx2}-${step.slice(0, 24)}`} className="flex gap-5">
               <span className="font-serif-display text-3xl italic text-brand-primary/70 w-10 leading-none flex-shrink-0">
                 {String(idx2 + 1).padStart(2, "0")}
               </span>
