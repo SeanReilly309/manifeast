@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,600&display=swap" rel="stylesheet" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 512px; height: 512px; overflow: hidden; }
+    /* Maskable: bleed background to all edges. Logo lives in the inner 80% safe zone (centered ~ 60% diameter). */
+    body {
+      background: radial-gradient(circle at 32% 28%, #F2CC8F 0%, #E07A5F 50%, #C96B52 100%);
+      display: flex; align-items: center; justify-content: center;
+      position: relative;
+    }
+    .y {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-style: italic;
+      font-weight: 600;
+      /* keep glyph within the 80% safe area (≈410px). Font 280px fits comfortably. */
+      font-size: 280px;
+      line-height: 1;
+      color: #FAFAF7;
+      margin-top: -10px;
+      text-shadow: 0 8px 30px rgba(45,48,71,0.22);
+    }
+    .spark {
+      position: absolute;
+      /* keep inside safe zone */
+      top: 150px; right: 165px;
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      background: #FAFAF7;
+      box-shadow: 0 0 26px rgba(255,255,255,0.55);
+    }
+  </style>
+</head>
+<body>
+  <div class="y">y</div>
+  <div class="spark"></div>
+</body>
+</html>
