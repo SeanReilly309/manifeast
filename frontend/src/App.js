@@ -10,6 +10,7 @@ import RecipeDetail from "@/pages/RecipeDetail";
 import ShoppingList from "@/pages/ShoppingList";
 import Favorites from "@/pages/Favorites";
 import CookMode from "@/pages/CookMode";
+import About from "@/pages/About";
 
 const TOAST_OPTIONS = {
   style: {
@@ -31,6 +32,7 @@ function App() {
               <Route path="/recipe/:idx" element={<RecipeDetail />} />
               <Route path="/favorites" element={<Favorites />} />
               <Route path="/shopping" element={<ShoppingList />} />
+              <Route path="/about" element={<About />} />
             </Route>
             <Route path="/recipe/:idx/cook" element={<CookMode />} />
           </Routes>

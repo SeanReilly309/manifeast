@@ -171,6 +171,17 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* Tiny footer with About link */}
+      <section className="text-center text-sm text-brand-text-soft pt-4 pb-2">
+        <Link
+          to="/about"
+          data-testid="home-about-link"
+          className="underline underline-offset-4 hover:text-brand-primary transition-colors"
+        >
+          What is Manifeast?
+        </Link>
+      </section>
     </div>
   );
 }
