@@ -1,6 +1,6 @@
 {
-  "short_name": "Mealmix",
-  "name": "Mealmix — Snap your fridge, get recipes",
+  "short_name": "Manifeast",
+  "name": "Manifeast — Snap your fridge, get recipes",
   "description": "Point your camera at what you have. We'll show you 3–5 real meals you can make right now.",
   "start_url": "/",
   "scope": "/",

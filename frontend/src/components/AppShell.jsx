@@ -34,7 +34,7 @@ export default function AppShell() {
               m
             </span>
             <span className="font-serif-display text-2xl md:text-[28px] font-semibold text-brand-text leading-none tracking-tight">
-              Meal<span className="text-brand-primary italic">mix</span>
+              Mani<span className="text-brand-primary italic">feast</span>
             </span>
           </Link>
           <nav className="hidden md:flex items-center gap-1">
