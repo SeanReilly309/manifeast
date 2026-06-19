@@ -2,8 +2,7 @@ import { Link } from "react-router-dom";
 import { Camera, PencilLine, Sparkles, Clock, ShoppingBasket } from "lucide-react";
 import { Button } from "../components/ui/button";
 
-const HERO_IMG =
-  "https://images.unsplash.com/photo-1590779033100-9f60a05a013d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NjZ8MHwxfHNlYXJjaHwyfHxmcmVzaCUyMHZlZ2V0YWJsZXMlMjBjb29raW5nJTIwaW5ncmVkaWVudHN8ZW58MHx8fHwxNzgxODc1OTI1fDA&ixlib=rb-4.1.0&q=85";
+const HERO_IMG = "/manifeast-mark.png";
 
 export default function Home() {
   return (
@@ -48,11 +47,12 @@ export default function Home() {
         <div className="relative">
           <div className="absolute -top-6 -left-6 w-32 h-32 rounded-full bg-brand-accent/30 blur-3xl" />
           <div className="absolute -bottom-6 -right-6 w-44 h-44 rounded-full bg-brand-secondary/20 blur-3xl" />
-          <div className="relative overflow-hidden rounded-[2rem] border border-brand-line shadow-[0_20px_60px_-30px_rgba(45,48,71,0.35)]">
+          <div className="relative overflow-hidden rounded-[2rem] border border-brand-line shadow-[0_20px_60px_-30px_rgba(45,48,71,0.35)] bg-gradient-to-br from-[#FAF6EC] via-[#F4EFE2] to-[#EDE6D2]">
             <img
               src={HERO_IMG}
-              alt="Fresh ingredients"
-              className="w-full h-[420px] md:h-[520px] object-cover"
+              alt="From your fridge to a plated meal"
+              className="w-full h-[420px] md:h-[520px] object-contain p-8 md:p-12"
+              style={{ mixBlendMode: "multiply" }}
             />
             <div className="absolute bottom-5 left-5 right-5 bg-white/85 backdrop-blur-md border border-white/60 rounded-2xl p-4 flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-brand-primary/15 flex items-center justify-center">
