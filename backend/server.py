@@ -58,6 +58,13 @@ class SuggestRequest(BaseModel):
     max_recipes: int = 5
 
 
+class Nutrition(BaseModel):
+    calories: int = 0
+    protein_g: int = 0
+    fat_g: int = 0
+    carbs_g: int = 0
+
+
 class Recipe(BaseModel):
     id: str
     title: str
@@ -68,6 +75,8 @@ class Recipe(BaseModel):
     ingredients_used: List[str]
     missing_ingredients: List[str]
     instructions: List[str]
+    nutrition: Nutrition = Field(default_factory=Nutrition)
+    servings: int = 1
 
 
 class SuggestResponse(BaseModel):
@@ -198,7 +207,9 @@ async def suggest_recipes(req: SuggestRequest):
         "title (short, appetizing), emoji (single food emoji), difficulty ('easy' or 'medium'), "
         "time_minutes (integer total time), description (1 short sentence), ingredients_used (list of "
         "lowercase strings from the user's list that are used), missing_ingredients (list of lowercase "
-        "items the user does NOT have), instructions (3–6 concise numbered steps). "
+        "items the user does NOT have), instructions (3–6 concise numbered steps), "
+        "servings (integer, default 1), and nutrition (object with calories, protein_g, fat_g, carbs_g "
+        "as integers — estimate PER SERVING based on typical ingredient amounts; be realistic, not zero). "
         'Return ONLY JSON of the form: {"recipes": [ {...}, {...} ]}'
     )
 
@@ -215,6 +226,7 @@ async def suggest_recipes(req: SuggestRequest):
         recipes: List[Recipe] = []
         for r in raw_recipes:
             try:
+                n = r.get("nutrition") or {}
                 recipes.append(
                     Recipe(
                         id=str(uuid.uuid4()),
@@ -226,6 +238,13 @@ async def suggest_recipes(req: SuggestRequest):
                         ingredients_used=[str(x).lower() for x in r.get("ingredients_used", []) if isinstance(x, str)],
                         missing_ingredients=[str(x).lower() for x in r.get("missing_ingredients", []) if isinstance(x, str)],
                         instructions=[str(x) for x in r.get("instructions", []) if isinstance(x, str)],
+                        servings=int(r.get("servings", 1) or 1),
+                        nutrition=Nutrition(
+                            calories=int(n.get("calories", 0) or 0),
+                            protein_g=int(n.get("protein_g", 0) or 0),
+                            fat_g=int(n.get("fat_g", 0) or 0),
+                            carbs_g=int(n.get("carbs_g", 0) or 0),
+                        ),
                     )
                 )
             except Exception:

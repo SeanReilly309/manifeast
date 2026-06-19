@@ -91,6 +91,11 @@ export default function Results() {
                 <span className="px-3 py-1 rounded-full text-xs font-semibold bg-white/90 text-brand-text flex items-center gap-1">
                   <Clock className="w-3 h-3" strokeWidth={2} /> {r.time_minutes} min
                 </span>
+                {r.nutrition?.calories > 0 && (
+                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-white/90 text-brand-text">
+                    {r.nutrition.calories} kcal
+                  </span>
+                )}
               </div>
               <div className="absolute top-3 right-3 w-10 h-10 rounded-full bg-white/90 flex items-center justify-center text-xl">
                 {r.emoji || "🍽️"}
@@ -102,6 +107,13 @@ export default function Results() {
               </h3>
               {r.description && (
                 <p className="text-sm text-brand-text-soft leading-relaxed line-clamp-2">{r.description}</p>
+              )}
+              {r.nutrition && (r.nutrition.protein_g > 0 || r.nutrition.fat_g > 0 || r.nutrition.carbs_g > 0) && (
+                <div className="flex gap-4 text-xs text-brand-text-soft pt-1">
+                  <span><span className="font-semibold text-brand-text">{r.nutrition.protein_g}g</span> protein</span>
+                  <span><span className="font-semibold text-brand-text">{r.nutrition.fat_g}g</span> fat</span>
+                  <span><span className="font-semibold text-brand-text">{r.nutrition.carbs_g}g</span> carbs</span>
+                </div>
               )}
               <div className="flex flex-wrap gap-1.5 pt-1">
                 {(r.ingredients_used || []).slice(0, 4).map((ing) => (

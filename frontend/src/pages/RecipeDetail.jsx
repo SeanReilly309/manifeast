@@ -81,7 +81,40 @@ export default function RecipeDetail() {
             <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-brand-line capitalize">
               <ChefHat className="w-4 h-4 text-brand-primary" strokeWidth={1.7} /> {recipe.difficulty}
             </span>
+            {recipe.servings > 0 && (
+              <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-brand-line">
+                Serves {recipe.servings}
+              </span>
+            )}
           </div>
+
+          {recipe.nutrition && recipe.nutrition.calories > 0 && (
+            <div data-testid="nutrition-panel" className="rounded-2xl bg-white border border-brand-line p-5">
+              <div className="flex items-end justify-between mb-3">
+                <p className="text-xs tracking-[0.22em] uppercase font-semibold text-brand-text-soft">
+                  Per serving
+                </p>
+                <p className="text-xs text-brand-text-soft italic">approximate</p>
+              </div>
+              <div className="grid grid-cols-4 gap-3">
+                {[
+                  { label: "kcal", value: recipe.nutrition.calories, accent: true },
+                  { label: "protein", value: `${recipe.nutrition.protein_g}g` },
+                  { label: "fat", value: `${recipe.nutrition.fat_g}g` },
+                  { label: "carbs", value: `${recipe.nutrition.carbs_g}g` },
+                ].map((m) => (
+                  <div key={m.label} className="text-center">
+                    <div className={`font-serif-display text-3xl md:text-4xl font-medium leading-none ${m.accent ? "text-brand-primary" : "text-brand-text"}`}>
+                      {m.value}
+                    </div>
+                    <div className="text-[11px] tracking-[0.18em] uppercase text-brand-text-soft mt-2">
+                      {m.label}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="space-y-3">
             <h3 className="text-xs tracking-[0.22em] uppercase font-semibold text-brand-text-soft">
