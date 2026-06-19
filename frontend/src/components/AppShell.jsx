@@ -23,14 +23,18 @@ export default function AppShell() {
       >
         <div className="max-w-5xl mx-auto px-5 md:px-8 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2.5" data-testid="logo-link">
-            <img
-              src="/yumaura-mark.png"
-              alt="Yumaura"
-              className="w-10 h-10 md:w-11 md:h-11 object-contain"
-            />
-            <span className="font-serif-display text-2xl md:text-[26px] font-semibold text-brand-text leading-none tracking-tight">
-              <span className="text-[#1E5A8A]">Yum</span>
-              <span className="bg-gradient-to-r from-[#5BA34A] to-[#E8B53F] bg-clip-text text-transparent">Aura</span>
+            <span
+              aria-hidden
+              className="w-9 h-9 md:w-10 md:h-10 rounded-2xl flex items-center justify-center font-serif-display italic text-2xl md:text-[26px] font-semibold text-white shadow-[0_6px_18px_rgba(224,122,95,0.35)]"
+              style={{
+                background:
+                  "radial-gradient(circle at 30% 28%, #F2CC8F 0%, #E07A5F 50%, #C96B52 100%)",
+              }}
+            >
+              m
+            </span>
+            <span className="font-serif-display text-2xl md:text-[28px] font-semibold text-brand-text leading-none tracking-tight">
+              Meal<span className="text-brand-primary italic">mix</span>
             </span>
           </Link>
           <nav className="hidden md:flex items-center gap-1">
