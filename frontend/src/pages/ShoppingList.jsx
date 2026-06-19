@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Trash2, Check, ShoppingBasket, ExternalLink, ShoppingCart } from "lucide-react";
+import { Trash2, Check, ShoppingBasket, ExternalLink, ShoppingCart, Globe } from "lucide-react";
 import { Button } from "../components/ui/button";
 import {
   DropdownMenu,
@@ -9,14 +9,30 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
 import { toast } from "sonner";
 import { useApp } from "../context/AppContext";
-import { RETAILERS } from "../lib/retailers";
+import { COUNTRIES, getCountry } from "../lib/retailers";
 
 export default function ShoppingList() {
-  const { shoppingList, toggleShoppingItem, removeShoppingItem, clearShopping } = useApp();
+  const {
+    shoppingList,
+    toggleShoppingItem,
+    removeShoppingItem,
+    clearShopping,
+    country,
+    setCountry,
+  } = useApp();
   const remaining = shoppingList.filter((i) => !i.checked);
   const itemsToShop = remaining.map((i) => i.name);
+  const activeCountry = getCountry(country);
+  const retailers = activeCountry.retailers;
 
   const openBulk = (retailer) => {
     if (itemsToShop.length === 0) {
@@ -50,14 +66,32 @@ export default function ShoppingList() {
           </p>
         </div>
         {shoppingList.length > 0 && (
-          <Button
-            data-testid="clear-shopping-btn"
-            variant="outline"
-            onClick={clearShopping}
-            className="rounded-full border-brand-text/15 text-brand-text bg-white hover:bg-brand-line/40"
-          >
-            Clear list
-          </Button>
+          <div className="flex items-center gap-3">
+            <Select value={country} onValueChange={setCountry}>
+              <SelectTrigger
+                data-testid="country-select"
+                className="rounded-full bg-white border-brand-line w-[180px] focus:ring-0 focus:ring-offset-0"
+              >
+                <Globe className="w-4 h-4 mr-1.5 text-brand-primary" strokeWidth={1.7} />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="rounded-2xl">
+                {COUNTRIES.map((c) => (
+                  <SelectItem key={c.code} value={c.code} data-testid={`country-opt-${c.code}`}>
+                    <span className="mr-2">{c.flag}</span>{c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              data-testid="clear-shopping-btn"
+              variant="outline"
+              onClick={clearShopping}
+              className="rounded-full border-brand-text/15 text-brand-text bg-white hover:bg-brand-line/40"
+            >
+              Clear list
+            </Button>
+          </div>
         )}
       </div>
 
@@ -81,7 +115,7 @@ export default function ShoppingList() {
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
-              {RETAILERS.map((r) => (
+              {retailers.map((r) => (
                 <button
                   key={r.id}
                   data-testid={`shop-bulk-${r.id}-btn`}
@@ -153,7 +187,7 @@ export default function ShoppingList() {
                       Find &ldquo;{item.name}&rdquo;
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
-                    {RETAILERS.map((r) => (
+                    {retailers.map((r) => (
                       <DropdownMenuItem
                         key={r.id}
                         data-testid={`buy-${item.name}-${r.id}`}

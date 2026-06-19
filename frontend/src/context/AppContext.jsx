@@ -1,10 +1,12 @@
 import { createContext, useContext, useEffect, useState } from "react";
+import { detectDefaultCountry } from "../lib/retailers";
 
 const AppContext = createContext(null);
 
 const LS_INGREDIENTS = "wcie_ingredients";
 const LS_RECIPES = "wcie_recipes";
 const LS_SHOPPING = "wcie_shopping";
+const LS_COUNTRY = "wcie_country";
 
 export function AppProvider({ children }) {
   const [ingredients, setIngredients] = useState(() => {
@@ -25,6 +27,12 @@ export function AppProvider({ children }) {
       return raw ? JSON.parse(raw) : [];
     } catch { return []; }
   });
+  const [country, setCountry] = useState(() => {
+    try {
+      const raw = localStorage.getItem(LS_COUNTRY);
+      return raw || detectDefaultCountry();
+    } catch { return "GB"; }
+  });
 
   useEffect(() => {
     localStorage.setItem(LS_INGREDIENTS, JSON.stringify(ingredients));
@@ -35,6 +43,9 @@ export function AppProvider({ children }) {
   useEffect(() => {
     localStorage.setItem(LS_SHOPPING, JSON.stringify(shoppingList));
   }, [shoppingList]);
+  useEffect(() => {
+    localStorage.setItem(LS_COUNTRY, country);
+  }, [country]);
 
   const addShoppingItems = (items) => {
     setShoppingList((prev) => {
@@ -74,6 +85,8 @@ export function AppProvider({ children }) {
         toggleShoppingItem,
         removeShoppingItem,
         clearShopping,
+        country,
+        setCountry,
       }}
     >
       {children}
