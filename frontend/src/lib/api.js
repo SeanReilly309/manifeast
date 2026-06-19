@@ -16,11 +16,10 @@ export const scanFridge = async (imageBase64, mimeType = "image/jpeg") => {
   return data;
 };
 
-export const suggestRecipes = async (ingredients, maxRecipes = 5, dietaryPreferences = []) => {
+export const suggestRecipes = async (ingredients, maxRecipes = 5) => {
   const { data } = await client.post("/suggest", {
     ingredients,
     max_recipes: maxRecipes,
-    dietary_preferences: dietaryPreferences,
   });
   return data;
 };

@@ -8,7 +8,6 @@ const LS_RECIPES = "wcie_recipes";
 const LS_SHOPPING = "wcie_shopping";
 const LS_COUNTRY = "wcie_country";
 const LS_FAVORITES = "manifeast_favorites";
-const LS_DIET = "manifeast_diet";
 
 function readJSON(key, fallback) {
   try {
@@ -36,7 +35,6 @@ export function AppProvider({ children }) {
   const [recipes, setRecipes] = useState(() => readJSON(LS_RECIPES, []));
   const [shoppingList, setShoppingList] = useState(() => readJSON(LS_SHOPPING, []));
   const [favorites, setFavorites] = useState(() => readJSON(LS_FAVORITES, []));
-  const [dietaryPrefs, setDietaryPrefs] = useState(() => readJSON(LS_DIET, []));
   const [country, setCountry] = useState(() => {
     try {
       return localStorage.getItem(LS_COUNTRY) || detectDefaultCountry();
@@ -49,7 +47,6 @@ export function AppProvider({ children }) {
   useLocalStorageSync(LS_RECIPES, recipes);
   useLocalStorageSync(LS_SHOPPING, shoppingList);
   useLocalStorageSync(LS_FAVORITES, favorites);
-  useLocalStorageSync(LS_DIET, dietaryPrefs);
   useLocalStorageSync(LS_COUNTRY, country, String);
 
   const addShoppingItems = useCallback((items) => {
@@ -87,12 +84,6 @@ export function AppProvider({ children }) {
     });
   }, []);
 
-  const toggleDiet = useCallback((tag) => {
-    setDietaryPrefs((prev) =>
-      prev.includes(tag) ? prev.filter((d) => d !== tag) : [...prev, tag]
-    );
-  }, []);
-
   const favoriteIds = useMemo(() => new Set(favorites.map(recipeKey)), [favorites]);
   const isFavorite = useCallback((recipe) => favoriteIds.has(recipeKey(recipe)), [favoriteIds]);
 
@@ -102,13 +93,12 @@ export function AppProvider({ children }) {
       recipes, setRecipes,
       shoppingList, addShoppingItems, toggleShoppingItem, removeShoppingItem, clearShopping,
       favorites, toggleFavorite, isFavorite,
-      dietaryPrefs, toggleDiet, setDietaryPrefs,
       country, setCountry,
     }),
     [
-      ingredients, recipes, shoppingList, favorites, dietaryPrefs, country,
+      ingredients, recipes, shoppingList, favorites, country,
       addShoppingItems, toggleShoppingItem, removeShoppingItem, clearShopping,
-      toggleFavorite, isFavorite, toggleDiet,
+      toggleFavorite, isFavorite,
     ]
   );
 
@@ -120,12 +110,3 @@ export const useApp = () => {
   if (!ctx) throw new Error("useApp must be used inside AppProvider");
   return ctx;
 };
-
-export const DIETARY_OPTIONS = [
-  { id: "vegetarian", label: "Vegetarian", emoji: "🥗" },
-  { id: "vegan", label: "Vegan", emoji: "🌱" },
-  { id: "gluten-free", label: "Gluten-free", emoji: "🌾" },
-  { id: "dairy-free", label: "Dairy-free", emoji: "🥛" },
-  { id: "high-protein", label: "High-protein", emoji: "💪" },
-  { id: "low-carb", label: "Low-carb", emoji: "🥑" },
-];
