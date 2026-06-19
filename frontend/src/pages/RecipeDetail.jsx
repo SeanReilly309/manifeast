@@ -1,5 +1,5 @@
 import { useNavigate, useParams, Link } from "react-router-dom";
-import { ArrowLeft, Clock, ChefHat, ShoppingBasket, Check } from "lucide-react";
+import { ArrowLeft, Clock, ChefHat, ShoppingBasket, Check, Heart, Share2, Play } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { toast } from "sonner";
 import { useApp } from "../context/AppContext";
@@ -10,10 +10,29 @@ const RECIPE_IMG = [
   "https://images.pexels.com/photos/8142046/pexels-photo-8142046.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
 ];
 
+function buildShareText(recipe) {
+  const lines = [
+    `${recipe.emoji || "🍽️"} ${recipe.title} — via Manifeast`,
+    recipe.description ? `\n${recipe.description}` : "",
+    `\n⏱ ${recipe.time_minutes} min · ${recipe.difficulty}`,
+    recipe.nutrition?.calories ? ` · ${recipe.nutrition.calories} kcal` : "",
+    recipe.ingredients_used?.length
+      ? `\n\nIngredients you'll use:\n• ${recipe.ingredients_used.join("\n• ")}`
+      : "",
+    recipe.missing_ingredients?.length
+      ? `\n\nYou'll also need:\n• ${recipe.missing_ingredients.join("\n• ")}`
+      : "",
+    recipe.instructions?.length
+      ? `\n\nSteps:\n${recipe.instructions.map((s, i) => `${i + 1}. ${s}`).join("\n")}`
+      : "",
+  ];
+  return lines.join("");
+}
+
 export default function RecipeDetail() {
   const { idx } = useParams();
   const navigate = useNavigate();
-  const { recipes, addShoppingItems } = useApp();
+  const { recipes, addShoppingItems, isFavorite, toggleFavorite } = useApp();
   const i = Number(idx);
   const recipe = recipes?.[i];
 
@@ -30,6 +49,8 @@ export default function RecipeDetail() {
     );
   }
 
+  const fav = isFavorite(recipe);
+
   const handleAddMissing = () => {
     if (!recipe.missing_ingredients || recipe.missing_ingredients.length === 0) {
       toast.info("No missing items — you're all set!");
@@ -37,6 +58,29 @@ export default function RecipeDetail() {
     }
     addShoppingItems(recipe.missing_ingredients);
     toast.success(`Added ${recipe.missing_ingredients.length} item(s) to your shopping list`);
+  };
+
+  const handleShare = async () => {
+    const text = buildShareText(recipe);
+    const shareData = {
+      title: `${recipe.title} — Manifeast`,
+      text,
+      url: window.location.href,
+    };
+    try {
+      if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+        await navigator.share(shareData);
+        return;
+      }
+    } catch (err) {
+      if (err?.name === "AbortError") return;
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Recipe copied to your clipboard");
+    } catch {
+      toast.error("Couldn't copy — please try again.");
+    }
   };
 
   return (
@@ -56,7 +100,27 @@ export default function RecipeDetail() {
             alt={recipe.title}
             className="w-full h-[360px] md:h-[480px] object-cover"
           />
-          <div className="absolute top-4 right-4 w-12 h-12 rounded-full bg-white/90 backdrop-blur flex items-center justify-center text-2xl">
+          <button
+            data-testid="detail-fav-btn"
+            onClick={() => toggleFavorite(recipe)}
+            aria-label={fav ? "Remove from favorites" : "Save to favorites"}
+            className={`absolute top-4 left-4 w-12 h-12 rounded-full flex items-center justify-center transition-all backdrop-blur-md ${
+              fav
+                ? "bg-brand-primary text-white"
+                : "bg-white/90 text-brand-text-soft hover:text-brand-primary"
+            }`}
+          >
+            <Heart className="w-6 h-6" strokeWidth={1.8} fill={fav ? "currentColor" : "none"} />
+          </button>
+          <button
+            data-testid="detail-share-btn"
+            onClick={handleShare}
+            aria-label="Share recipe"
+            className="absolute top-4 right-4 w-12 h-12 rounded-full bg-white/90 backdrop-blur-md flex items-center justify-center text-brand-text-soft hover:text-brand-primary transition-colors"
+          >
+            <Share2 className="w-5 h-5" strokeWidth={1.8} />
+          </button>
+          <div className="absolute bottom-4 right-4 w-12 h-12 rounded-full bg-white/90 backdrop-blur flex items-center justify-center text-2xl">
             {recipe.emoji || "🍽️"}
           </div>
         </div>
@@ -154,6 +218,16 @@ export default function RecipeDetail() {
               </Button>
             </div>
           )}
+
+          <div className="pt-2 flex flex-wrap gap-3">
+            <Button
+              data-testid="start-cook-mode-btn"
+              onClick={() => navigate(`/recipe/${i}/cook`)}
+              className="rounded-full px-7 py-6 text-base font-semibold bg-brand-primary hover:bg-brand-primary-dark text-white shadow-[0_8px_24px_rgba(224,122,95,0.32)]"
+            >
+              <Play className="w-5 h-5 mr-2" strokeWidth={1.7} fill="currentColor" /> Start cooking
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -167,6 +241,9 @@ export default function RecipeDetail() {
           <h2 className="font-serif-display text-3xl md:text-4xl font-medium text-brand-text">
             Step by step.
           </h2>
+          <p className="text-sm text-brand-text-soft pt-2">
+            Tip: use cook mode for a hands-free, fullscreen view while you cook.
+          </p>
         </div>
         <ol className="md:col-span-2 space-y-5" data-testid="instruction-list">
           {(recipe.instructions || []).map((step, idx2) => (

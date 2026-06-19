@@ -1,5 +1,6 @@
 import { memo } from "react";
-import { Clock, ChefHat, ArrowRight } from "lucide-react";
+import { Clock, ChefHat, ArrowRight, Heart } from "lucide-react";
+import { useApp } from "../context/AppContext";
 
 const RECIPE_IMG = [
   "https://images.pexels.com/photos/13294537/pexels-photo-13294537.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
@@ -14,12 +15,19 @@ function difficultyTone(d) {
 }
 
 function RecipeCardBase({ recipe, index, onOpen }) {
+  const { isFavorite, toggleFavorite } = useApp();
+  const fav = isFavorite(recipe);
   const usedAll = recipe.ingredients_used || [];
   const used = usedAll.slice(0, 4);
   const usedExtra = Math.max(0, usedAll.length - used.length);
   const missing = recipe.missing_ingredients || [];
   const n = recipe.nutrition;
   const showMacros = n && (n.protein_g > 0 || n.fat_g > 0 || n.carbs_g > 0);
+
+  const handleFavClick = (e) => {
+    e.stopPropagation();
+    toggleFavorite(recipe);
+  };
 
   return (
     <article
@@ -46,7 +54,20 @@ function RecipeCardBase({ recipe, index, onOpen }) {
             </span>
           )}
         </div>
-        <div className="absolute top-3 right-3 w-10 h-10 rounded-full bg-white/90 flex items-center justify-center text-xl">
+        <button
+          type="button"
+          data-testid={`fav-btn-${index}`}
+          onClick={handleFavClick}
+          aria-label={fav ? "Remove from favorites" : "Save to favorites"}
+          className={`absolute top-3 right-3 w-10 h-10 rounded-full flex items-center justify-center transition-all backdrop-blur-md ${
+            fav
+              ? "bg-brand-primary text-white scale-105"
+              : "bg-white/90 text-brand-text-soft hover:text-brand-primary hover:scale-105"
+          }`}
+        >
+          <Heart className="w-5 h-5" strokeWidth={1.8} fill={fav ? "currentColor" : "none"} />
+        </button>
+        <div className="absolute bottom-3 right-3 w-9 h-9 rounded-full bg-white/90 flex items-center justify-center text-lg">
           {recipe.emoji || "🍽️"}
         </div>
       </div>

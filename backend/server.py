@@ -56,6 +56,7 @@ class ScanResponse(BaseModel):
 class SuggestRequest(BaseModel):
     ingredients: List[str]
     max_recipes: int = 5
+    dietary_preferences: List[str] = Field(default_factory=list)
 
 
 class Nutrition(BaseModel):
@@ -232,9 +233,28 @@ async def suggest_recipes(req: SuggestRequest):
     ingredient_list = ", ".join(req.ingredients)
     n = max(3, min(req.max_recipes, 5))
 
+    diet_rules = ""
+    if req.dietary_preferences:
+        diet_map = {
+            "vegetarian": "No meat, poultry, or seafood.",
+            "vegan": "No animal products at all (no meat, dairy, eggs, honey).",
+            "gluten-free": "No wheat, barley, rye, or regular pasta/bread (gluten-free pasta is ok).",
+            "dairy-free": "No milk, cheese, butter, yogurt, or cream.",
+            "high-protein": "Prioritize recipes with at least 25g protein per serving.",
+            "low-carb": "Keep carbs under 30g per serving; avoid pasta/rice/bread as primary base.",
+        }
+        active = [diet_map.get(p, p) for p in req.dietary_preferences]
+        diet_rules = (
+            "CRITICAL DIETARY RULES (override the 'use what they have' instinct — "
+            "skip any recipe that would violate these, even if it means leaving ingredients unused): "
+            + " ".join(f"- {r}" for r in active)
+            + " "
+        )
+
     system = (
         "You are a friendly home-cook recipe assistant. Given a list of ingredients the user has, "
         f"suggest {n} realistic meal ideas that prioritize using ONLY the items they have. "
+        + diet_rules +
         "It's fine if a recipe needs 1–3 small extra items (oil, salt, pepper, herbs, garlic, butter "
         "are considered pantry staples and should NOT be listed as missing). For each recipe, return: "
         "title (short, appetizing), emoji (single food emoji), difficulty ('easy' or 'medium'), "

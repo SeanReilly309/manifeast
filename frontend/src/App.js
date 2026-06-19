@@ -8,6 +8,8 @@ import Scan from "@/pages/Scan";
 import Results from "@/pages/Results";
 import RecipeDetail from "@/pages/RecipeDetail";
 import ShoppingList from "@/pages/ShoppingList";
+import Favorites from "@/pages/Favorites";
+import CookMode from "@/pages/CookMode";
 
 const TOAST_OPTIONS = {
   style: {
@@ -27,8 +29,10 @@ function App() {
               <Route path="/scan" element={<Scan />} />
               <Route path="/results" element={<Results />} />
               <Route path="/recipe/:idx" element={<RecipeDetail />} />
+              <Route path="/favorites" element={<Favorites />} />
               <Route path="/shopping" element={<ShoppingList />} />
             </Route>
+            <Route path="/recipe/:idx/cook" element={<CookMode />} />
           </Routes>
         </BrowserRouter>
         <Toaster position="top-center" richColors toastOptions={TOAST_OPTIONS} />

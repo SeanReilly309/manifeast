@@ -4,7 +4,7 @@ import { Camera, Upload, X, Plus, Loader2, Sparkles } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { toast } from "sonner";
-import { useApp } from "../context/AppContext";
+import { useApp, DIETARY_OPTIONS } from "../context/AppContext";
 import { suggestRecipes } from "../lib/api";
 import { useScanIngredients } from "../hooks/useScanIngredients";
 
@@ -150,7 +150,7 @@ export default function Scan() {
   const { search } = useLocation();
   const startManual = new URLSearchParams(search).get("mode") === "manual";
 
-  const { ingredients, setIngredients, setRecipes } = useApp();
+  const { ingredients, setIngredients, setRecipes, dietaryPrefs, toggleDiet } = useApp();
   const [mode, setMode] = useState(startManual ? "manual" : "photo");
   const [manualInput, setManualInput] = useState("");
   const [suggesting, setSuggesting] = useState(false);
@@ -183,7 +183,7 @@ export default function Scan() {
     }
     setSuggesting(true);
     try {
-      const data = await suggestRecipes(ingredients, 5);
+      const data = await suggestRecipes(ingredients, 5, dietaryPrefs);
       setRecipes(data.recipes || []);
       navigate("/results");
     } catch (e) {
@@ -192,7 +192,7 @@ export default function Scan() {
     } finally {
       setSuggesting(false);
     }
-  }, [ingredients, setRecipes, navigate]);
+  }, [ingredients, dietaryPrefs, setRecipes, navigate]);
 
   return (
     <div className="space-y-10" data-testid="scan-page">
@@ -268,6 +268,37 @@ export default function Scan() {
       </div>
 
       <div className="editorial-divider" />
+
+      {/* Dietary filters */}
+      <div className="space-y-4">
+        <div>
+          <p className="text-xs tracking-[0.22em] uppercase font-semibold text-brand-primary mb-1">
+            Dietary preferences
+          </p>
+          <h2 className="font-serif-display text-2xl md:text-3xl font-medium text-brand-text">
+            Anything to skip? <span className="text-brand-text-soft italic text-xl">(optional)</span>
+          </h2>
+        </div>
+        <div className="flex flex-wrap gap-2" data-testid="dietary-chips">
+          {DIETARY_OPTIONS.map((d) => {
+            const active = dietaryPrefs.includes(d.id);
+            return (
+              <button
+                key={d.id}
+                data-testid={`diet-${d.id}`}
+                onClick={() => toggleDiet(d.id)}
+                className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-all ${
+                  active
+                    ? "bg-brand-primary text-white shadow-[0_4px_12px_rgba(224,122,95,0.3)]"
+                    : "bg-white border border-brand-line text-brand-text-soft hover:border-brand-primary/40 hover:text-brand-text"
+                }`}
+              >
+                <span>{d.emoji}</span> {d.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
         <p className="text-sm text-brand-text-soft max-w-md">

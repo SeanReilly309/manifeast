@@ -7,6 +7,8 @@ const LS_INGREDIENTS = "wcie_ingredients";
 const LS_RECIPES = "wcie_recipes";
 const LS_SHOPPING = "wcie_shopping";
 const LS_COUNTRY = "wcie_country";
+const LS_FAVORITES = "manifeast_favorites";
+const LS_DIET = "manifeast_diet";
 
 function readJSON(key, fallback) {
   try {
@@ -27,10 +29,14 @@ function useLocalStorageSync(key, value, serializer = JSON.stringify) {
   }, [key, value, serializer]);
 }
 
+const recipeKey = (r) => r.id || r.title;
+
 export function AppProvider({ children }) {
   const [ingredients, setIngredients] = useState(() => readJSON(LS_INGREDIENTS, []));
   const [recipes, setRecipes] = useState(() => readJSON(LS_RECIPES, []));
   const [shoppingList, setShoppingList] = useState(() => readJSON(LS_SHOPPING, []));
+  const [favorites, setFavorites] = useState(() => readJSON(LS_FAVORITES, []));
+  const [dietaryPrefs, setDietaryPrefs] = useState(() => readJSON(LS_DIET, []));
   const [country, setCountry] = useState(() => {
     try {
       return localStorage.getItem(LS_COUNTRY) || detectDefaultCountry();
@@ -42,6 +48,8 @@ export function AppProvider({ children }) {
   useLocalStorageSync(LS_INGREDIENTS, ingredients);
   useLocalStorageSync(LS_RECIPES, recipes);
   useLocalStorageSync(LS_SHOPPING, shoppingList);
+  useLocalStorageSync(LS_FAVORITES, favorites);
+  useLocalStorageSync(LS_DIET, dietaryPrefs);
   useLocalStorageSync(LS_COUNTRY, country, String);
 
   const addShoppingItems = useCallback((items) => {
@@ -70,29 +78,37 @@ export function AppProvider({ children }) {
 
   const clearShopping = useCallback(() => setShoppingList([]), []);
 
+  const toggleFavorite = useCallback((recipe) => {
+    setFavorites((prev) => {
+      const k = recipeKey(recipe);
+      const idx = prev.findIndex((r) => recipeKey(r) === k);
+      if (idx >= 0) return prev.filter((_, i) => i !== idx);
+      return [{ ...recipe, _savedAt: Date.now() }, ...prev];
+    });
+  }, []);
+
+  const toggleDiet = useCallback((tag) => {
+    setDietaryPrefs((prev) =>
+      prev.includes(tag) ? prev.filter((d) => d !== tag) : [...prev, tag]
+    );
+  }, []);
+
+  const favoriteIds = useMemo(() => new Set(favorites.map(recipeKey)), [favorites]);
+  const isFavorite = useCallback((recipe) => favoriteIds.has(recipeKey(recipe)), [favoriteIds]);
+
   const value = useMemo(
     () => ({
-      ingredients,
-      setIngredients,
-      recipes,
-      setRecipes,
-      shoppingList,
-      addShoppingItems,
-      toggleShoppingItem,
-      removeShoppingItem,
-      clearShopping,
-      country,
-      setCountry,
+      ingredients, setIngredients,
+      recipes, setRecipes,
+      shoppingList, addShoppingItems, toggleShoppingItem, removeShoppingItem, clearShopping,
+      favorites, toggleFavorite, isFavorite,
+      dietaryPrefs, toggleDiet, setDietaryPrefs,
+      country, setCountry,
     }),
     [
-      ingredients,
-      recipes,
-      shoppingList,
-      country,
-      addShoppingItems,
-      toggleShoppingItem,
-      removeShoppingItem,
-      clearShopping,
+      ingredients, recipes, shoppingList, favorites, dietaryPrefs, country,
+      addShoppingItems, toggleShoppingItem, removeShoppingItem, clearShopping,
+      toggleFavorite, isFavorite, toggleDiet,
     ]
   );
 
@@ -104,3 +120,12 @@ export const useApp = () => {
   if (!ctx) throw new Error("useApp must be used inside AppProvider");
   return ctx;
 };
+
+export const DIETARY_OPTIONS = [
+  { id: "vegetarian", label: "Vegetarian", emoji: "🥗" },
+  { id: "vegan", label: "Vegan", emoji: "🌱" },
+  { id: "gluten-free", label: "Gluten-free", emoji: "🌾" },
+  { id: "dairy-free", label: "Dairy-free", emoji: "🥛" },
+  { id: "high-protein", label: "High-protein", emoji: "💪" },
+  { id: "low-carb", label: "Low-carb", emoji: "🥑" },
+];

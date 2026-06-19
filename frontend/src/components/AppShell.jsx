@@ -1,11 +1,12 @@
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
-import { Home, Camera, ListPlus, ShoppingBasket } from "lucide-react";
+import { Home, Camera, ListPlus, ShoppingBasket, Heart } from "lucide-react";
 import { useApp } from "../context/AppContext";
 
 const navItems = [
   { to: "/", label: "Home", icon: Home, testId: "nav-home" },
   { to: "/scan", label: "Scan", icon: Camera, testId: "nav-scan" },
   { to: "/results", label: "Recipes", icon: ListPlus, testId: "nav-results" },
+  { to: "/favorites", label: "Saved", icon: Heart, testId: "nav-favorites" },
   { to: "/shopping", label: "Shop", icon: ShoppingBasket, testId: "nav-shopping" },
 ];
 
@@ -61,7 +62,7 @@ export default function AppShell() {
         data-testid="bottom-nav"
         className="md:hidden fixed bottom-0 inset-x-0 z-40 backdrop-blur-xl bg-[#FAFAF7]/85 border-t border-brand-line"
       >
-        <div className="grid grid-cols-4">
+        <div className="grid grid-cols-5">
           {navItems.map((n) => {
             const Icon = n.icon;
             const isShop = n.to === "/shopping";
