@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 1200px; height: 630px; overflow: hidden; }
+    body {
+      font-family: 'Outfit', system-ui, sans-serif;
+      background: #FAFAF7;
+      color: #2D3047;
+      display: grid;
+      grid-template-columns: 1.05fr 1fr;
+      position: relative;
+    }
+    .left { padding: 78px 70px 70px 78px; display: flex; flex-direction: column; justify-content: space-between; position: relative; z-index: 2; }
+    .brand { display: flex; align-items: baseline; gap: 6px; }
+    .brand .wordmark { font-family: 'Cormorant Garamond', Georgia, serif; font-weight: 600; font-size: 62px; line-height: 1; letter-spacing: -0.5px; }
+    .brand .dot { width: 14px; height: 14px; border-radius: 50%; background: #E07A5F; margin-bottom: 6px; box-shadow: 0 0 20px rgba(224,122,95,0.6); }
+    .eyebrow { font-size: 14px; letter-spacing: 0.32em; text-transform: uppercase; color: #E07A5F; font-weight: 700; margin-bottom: 22px; }
+    h1 {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-weight: 500;
+      font-size: 90px;
+      line-height: 0.98;
+      letter-spacing: -1.5px;
+      text-wrap: balance;
+    }
+    h1 em { font-style: italic; color: #E07A5F; }
+    .sub { font-size: 21px; color: #5C5F73; max-width: 480px; line-height: 1.45; margin-top: 26px; }
+    .footer { display: flex; align-items: center; gap: 14px; }
+    .footer .pill {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: #2D3047; color: white; padding: 10px 20px; border-radius: 999px;
+      font-weight: 600; font-size: 16px;
+    }
+    .footer .pill .glow { width: 8px; height: 8px; border-radius: 50%; background: #F2CC8F; box-shadow: 0 0 12px #F2CC8F; }
+    .footer .meta { font-size: 14px; color: #5C5F73; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 600; }
+
+    .right { position: relative; overflow: hidden; }
+    .right img { width: 100%; height: 100%; object-fit: cover; }
+    .right::before {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(90deg, #FAFAF7 0%, rgba(250,250,247,0.3) 18%, rgba(250,250,247,0) 40%);
+      z-index: 1;
+    }
+    .card {
+      position: absolute; bottom: 36px; right: 36px; z-index: 2;
+      background: rgba(255,255,255,0.94); backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.6); border-radius: 22px;
+      padding: 18px 22px; display: flex; align-items: center; gap: 14px;
+      box-shadow: 0 18px 40px -18px rgba(45,48,71,0.35);
+    }
+    .card .spark {
+      width: 44px; height: 44px; border-radius: 50%; background: rgba(224,122,95,0.15);
+      display: flex; align-items: center; justify-content: center; font-size: 22px;
+    }
+    .card .t1 { font-weight: 700; font-size: 17px; color: #2D3047; }
+    .card .t2 { font-size: 13px; color: #5C5F73; margin-top: 2px; }
+
+    .grain {
+      position: absolute; inset: 0; pointer-events: none; z-index: 3;
+      background-image:
+        radial-gradient(rgba(45,48,71,0.045) 1px, transparent 1px),
+        radial-gradient(rgba(45,48,71,0.03) 1px, transparent 1px);
+      background-size: 3px 3px, 7px 7px;
+      background-position: 0 0, 1px 1px;
+    }
+  </style>
+</head>
+<body>
+  <div class="left">
+    <div class="brand">
+      <span class="wordmark">yumaura</span>
+      <span class="dot"></span>
+    </div>
+    <div>
+      <div class="eyebrow">No more "what's for dinner?"</div>
+      <h1>Snap your fridge.<br/><em>Cook something</em> tonight.</h1>
+      <p class="sub">Point your camera at what you have. We'll show you three to five real meals you can make right now.</p>
+    </div>
+    <div class="footer">
+      <div class="pill"><span class="glow"></span>3–5 meals in seconds</div>
+      <div class="meta">yumaura.app</div>
+    </div>
+  </div>
+  <div class="right">
+    <img src="https://images.unsplash.com/photo-1590779033100-9f60a05a013d?crop=entropy&cs=srgb&fm=jpg&w=1400&q=85" alt="" />
+    <div class="card">
+      <div class="spark">✨</div>
+      <div>
+        <div class="t1">Powered by smart vision</div>
+        <div class="t2">Eggs · pasta · that lonely tomato</div>
+      </div>
+    </div>
+  </div>
+  <div class="grain"></div>
+</body>
+</html>
