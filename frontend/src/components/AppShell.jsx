@@ -22,20 +22,13 @@ export default function AppShell() {
         className="sticky top-0 z-40 backdrop-blur-xl bg-[#FAFAF7]/80 border-b border-brand-line"
       >
         <div className="max-w-5xl mx-auto px-5 md:px-8 py-4 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2.5" data-testid="logo-link">
-            <span
-              aria-hidden
-              className="w-9 h-9 md:w-10 md:h-10 rounded-2xl flex items-center justify-center font-serif-display italic text-2xl md:text-[26px] font-semibold text-white shadow-[0_6px_18px_rgba(224,122,95,0.35)]"
-              style={{
-                background:
-                  "radial-gradient(circle at 30% 28%, #F2CC8F 0%, #E07A5F 50%, #C96B52 100%)",
-              }}
-            >
-              m
-            </span>
-            <span className="font-serif-display text-2xl md:text-[28px] font-semibold text-brand-text leading-none tracking-tight">
-              Mani<span className="text-brand-primary italic">feast</span>
-            </span>
+          <Link to="/" className="flex items-center" data-testid="logo-link">
+            <img
+              src="/manifeast-logo.jpg"
+              alt="Manifeast"
+              className="h-14 md:h-16 w-auto select-none"
+              style={{ mixBlendMode: "multiply" }}
+            />
           </Link>
           <nav className="hidden md:flex items-center gap-1">
             {navItems.map((n) => (
