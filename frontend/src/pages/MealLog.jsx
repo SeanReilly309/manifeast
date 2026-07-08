@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import { Utensils, Trash2, Clock } from "lucide-react";
+import { Utensils, Trash2, Clock, TrendingUp } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { useApp } from "../context/AppContext";
 
@@ -33,6 +33,75 @@ function sumMacros(entries) {
     { calories: 0, protein_g: 0, fat_g: 0, carbs_g: 0 }
   );
 }
+
+function rollingAverage(entries, days = 7) {
+  const now = Date.now();
+  const cutoff = now - days * 86400000;
+  const withinWindow = entries.filter((m) => new Date(m.logged_at).getTime() >= cutoff);
+  if (withinWindow.length === 0) return null;
+
+  const daySet = new Set(withinWindow.map((m) => ymd(m.logged_at)));
+  const daysWithMeals = Math.max(daySet.size, 1);
+
+  const totals = sumMacros(withinWindow);
+  return {
+    daysWithMeals,
+    mealsTotal: withinWindow.length,
+    avg: {
+      calories: Math.round(totals.calories / daysWithMeals),
+      protein_g: Math.round(totals.protein_g / daysWithMeals),
+      fat_g: Math.round(totals.fat_g / daysWithMeals),
+      carbs_g: Math.round(totals.carbs_g / daysWithMeals),
+    },
+  };
+}
+
+function AveragesBand({ stats }) {
+  return (
+    <section
+      data-testid="averages-band"
+      className="rounded-3xl bg-brand-text text-white p-6 md:p-8 grain relative overflow-hidden"
+    >
+      <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-brand-primary/25 blur-3xl" />
+      <div className="relative space-y-5">
+        <div className="flex items-end justify-between flex-wrap gap-3">
+          <div className="space-y-1.5">
+            <p className="text-xs tracking-[0.22em] uppercase font-semibold text-brand-accent flex items-center gap-2">
+              <TrendingUp className="w-3.5 h-3.5" strokeWidth={2} /> 7-day average
+            </p>
+            <h2 className="font-serif-display text-2xl md:text-3xl font-medium leading-snug">
+              Your typical day.
+            </h2>
+          </div>
+          <p className="text-xs text-white/60 uppercase tracking-[0.18em] font-semibold">
+            {stats.daysWithMeals} day{stats.daysWithMeals === 1 ? "" : "s"} &middot; {stats.mealsTotal} meal{stats.mealsTotal === 1 ? "" : "s"}
+          </p>
+        </div>
+        <div className="grid grid-cols-4 gap-2 md:gap-6">
+          {[
+            { label: "kcal", value: stats.avg.calories, accent: true },
+            { label: "protein", value: `${stats.avg.protein_g}g` },
+            { label: "fat", value: `${stats.avg.fat_g}g` },
+            { label: "carbs", value: `${stats.avg.carbs_g}g` },
+          ].map((m) => (
+            <div key={m.label} className="text-center bg-white/8 backdrop-blur-sm rounded-2xl py-5 border border-white/10">
+              <div className={`font-serif-display text-3xl md:text-5xl font-medium leading-none ${m.accent ? "text-brand-accent" : "text-white"}`}>
+                {m.value}
+              </div>
+              <div className="text-[10px] tracking-[0.18em] uppercase text-white/60 mt-2.5">
+                {m.label}
+              </div>
+            </div>
+          ))}
+        </div>
+        <p className="text-xs text-white/50 italic">
+          Averaged over days you actually logged meals &mdash; skipped days aren&rsquo;t counted.
+        </p>
+      </div>
+    </section>
+  );
+}
+
 
 function DailyTotals({ totals }) {
   return (
@@ -110,6 +179,8 @@ export default function MealLog() {
     }));
   }, [mealLog]);
 
+  const rolling = useMemo(() => rollingAverage(mealLog, 7), [mealLog]);
+
   if (mealLog.length === 0) {
     return (
       <div className="text-center py-24 space-y-6" data-testid="log-empty">
@@ -155,6 +226,8 @@ export default function MealLog() {
           Clear log
         </Button>
       </div>
+
+      {rolling && <AveragesBand stats={rolling} />}
 
       <div className="space-y-10">
         {grouped.map((day) => (
