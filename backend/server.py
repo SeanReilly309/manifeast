@@ -43,6 +43,11 @@ class ScanRequest(BaseModel):
     mime_type: Optional[str] = "image/jpeg"
 
 
+class AnalyzeMealRequest(BaseModel):
+    image_base64: str
+    mime_type: Optional[str] = "image/jpeg"
+
+
 class Ingredient(BaseModel):
     name: str
     confidence: Optional[float] = None
@@ -82,6 +87,18 @@ class Recipe(BaseModel):
 class SuggestResponse(BaseModel):
     id: str
     recipes: List[Recipe]
+
+
+class MealAnalysis(BaseModel):
+    id: str
+    meal_name: str
+    description: str
+    servings: int
+    identified_items: List[str]
+    nutrition: "Nutrition"
+    confidence: str  # low / medium / high
+    notes: str = ""
+    is_food: bool = True
 
 
 # ---------- Helpers ----------
@@ -278,6 +295,63 @@ async def suggest_recipes(req: SuggestRequest):
         }
     )
     return SuggestResponse(id=suggestion_id, recipes=recipes)
+
+
+@api_router.post("/analyze-meal", response_model=MealAnalysis)
+async def analyze_meal(req: AnalyzeMealRequest):
+    b64 = _strip_data_url(req.image_base64)
+    if not b64 or len(b64) < 100:
+        raise HTTPException(status_code=400, detail="Invalid image data")
+
+    system = (
+        "You are a nutrition-estimation assistant. Given a photograph of a plated / prepared meal "
+        "(or a snack, drink, or any food item), identify what it is and estimate its nutrition. "
+        "Be realistic and honest about uncertainty — food photos are notoriously hard to size. "
+        "Return ONLY a JSON object with these exact fields: "
+        "is_food (boolean — false if the image doesn't contain food/drink), "
+        "meal_name (short, e.g. 'Grilled salmon with asparagus'; 'Not a meal' if is_food is false), "
+        "description (one short sentence describing the dish), "
+        "servings (integer, typically 1 for a single plate), "
+        "identified_items (list of visible food components, lowercase), "
+        "nutrition (object with calories, protein_g, fat_g, carbs_g — all integers, PER SERVING; "
+        "all zero if is_food is false), "
+        "confidence ('low', 'medium', or 'high' based on how confidently you can identify + size the meal), "
+        "notes (brief caveats like 'assumed ~200g portion' or 'dressing not visible'; empty string if none). "
+        "If confidence is low because the portion is ambiguous, prefer an estimate that leans slightly conservative."
+    )
+
+    image = ImageContent(image_base64=b64)
+    user_msg = UserMessage(text="Analyze this meal's nutrition.", file_contents=[image])
+
+    try:
+        raw = await _run_chat(system, user_msg)
+        data = _extract_json(raw)
+        if not isinstance(data, dict):
+            raise ValueError("Model did not return a JSON object")
+        analysis = MealAnalysis(
+            id=str(uuid.uuid4()),
+            meal_name=str(data.get("meal_name", "Unknown")).strip() or "Unknown",
+            description=str(data.get("description", "")).strip(),
+            servings=int(data.get("servings", 1) or 1),
+            identified_items=_str_list(data.get("identified_items")),
+            nutrition=_build_nutrition(data.get("nutrition")),
+            confidence=str(data.get("confidence", "medium")).strip().lower(),
+            notes=str(data.get("notes", "")).strip(),
+            is_food=bool(data.get("is_food", True)),
+        )
+    except Exception as e:
+        logging.exception("analyze-meal failed")
+        raise HTTPException(status_code=500, detail=f"Meal analysis failed: {e}")
+
+    await db.meal_analyses.insert_one(
+        {
+            "id": analysis.id,
+            "meal_name": analysis.meal_name,
+            "nutrition": analysis.nutrition.model_dump(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+    )
+    return analysis
 
 
 app.include_router(api_router)

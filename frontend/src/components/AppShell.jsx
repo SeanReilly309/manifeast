@@ -1,11 +1,11 @@
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
-import { Home, Camera, ListPlus, ShoppingBasket, Heart } from "lucide-react";
+import { Home, Camera, ListPlus, ShoppingBasket, Heart, Utensils } from "lucide-react";
 import { useApp } from "../context/AppContext";
 
 const navItems = [
   { to: "/", label: "Home", icon: Home, testId: "nav-home" },
   { to: "/scan", label: "Scan", icon: Camera, testId: "nav-scan" },
-  { to: "/results", label: "Recipes", icon: ListPlus, testId: "nav-results" },
+  { to: "/analyze", label: "Analyze", icon: Utensils, testId: "nav-analyze" },
   { to: "/favorites", label: "Saved", icon: Heart, testId: "nav-favorites" },
   { to: "/shopping", label: "Shop", icon: ShoppingBasket, testId: "nav-shopping" },
 ];
