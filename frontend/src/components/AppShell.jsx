@@ -50,6 +50,19 @@ export default function AppShell() {
               </NavLink>
             ))}
             <NavLink
+              to="/coach"
+              data-testid="nav-coach-desktop"
+              className={({ isActive }) =>
+                `px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                  isActive
+                    ? "bg-brand-primary text-white"
+                    : "text-brand-text-soft hover:text-brand-text hover:bg-brand-line/60"
+                }`
+              }
+            >
+              Coach
+            </NavLink>
+            <NavLink
               to="/about"
               data-testid="nav-about-desktop"
               className={({ isActive }) =>

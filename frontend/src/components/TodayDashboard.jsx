@@ -103,12 +103,12 @@ export default function TodayDashboard() {
       <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-brand-line">
         {!hasGoal ? (
           <Link
-            to="/log"
+            to="/coach"
             data-testid="dashboard-set-goal"
             className="text-sm font-semibold text-brand-text-soft hover:text-brand-primary inline-flex items-center gap-2"
           >
             <Target className="w-4 h-4" strokeWidth={1.7} />
-            Set a daily target
+            Get a personalized target
           </Link>
         ) : (
           <div className="text-sm text-brand-text-soft inline-flex items-center gap-2">
