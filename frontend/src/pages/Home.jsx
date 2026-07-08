@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Camera, PencilLine, Sparkles, Clock, ShoppingBasket } from "lucide-react";
 import { Button } from "../components/ui/button";
+import TodayDashboard from "../components/TodayDashboard";
 
 const HERO_IMG =
   "https://images.pexels.com/photos/1640774/pexels-photo-1640774.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=900&w=900";
@@ -8,6 +9,9 @@ const HERO_IMG =
 export default function Home() {
   return (
     <div className="space-y-20 md:space-y-28" data-testid="home-page">
+      {/* TODAY DASHBOARD — first thing users see */}
+      <TodayDashboard />
+
       {/* HERO */}
       <section className="grid md:grid-cols-2 gap-10 md:gap-16 items-center pt-4 md:pt-8">
         <div className="space-y-7 animate-fade-up">
