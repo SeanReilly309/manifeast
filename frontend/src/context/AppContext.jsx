@@ -9,6 +9,7 @@ const LS_SHOPPING = "wcie_shopping";
 const LS_COUNTRY = "wcie_country";
 const LS_FAVORITES = "manifeast_favorites";
 const LS_MEAL_LOG = "manifeast_meal_log";
+const LS_DAILY_GOAL = "manifeast_daily_goal";
 
 function readJSON(key, fallback) {
   try {
@@ -37,6 +38,9 @@ export function AppProvider({ children }) {
   const [shoppingList, setShoppingList] = useState(() => readJSON(LS_SHOPPING, []));
   const [favorites, setFavorites] = useState(() => readJSON(LS_FAVORITES, []));
   const [mealLog, setMealLog] = useState(() => readJSON(LS_MEAL_LOG, []));
+  const [dailyGoal, setDailyGoal] = useState(() =>
+    readJSON(LS_DAILY_GOAL, { calories: 0, protein_g: 0, fat_g: 0, carbs_g: 0 })
+  );
   const [country, setCountry] = useState(() => {
     try {
       return localStorage.getItem(LS_COUNTRY) || detectDefaultCountry();
@@ -50,6 +54,7 @@ export function AppProvider({ children }) {
   useLocalStorageSync(LS_SHOPPING, shoppingList);
   useLocalStorageSync(LS_FAVORITES, favorites);
   useLocalStorageSync(LS_MEAL_LOG, mealLog);
+  useLocalStorageSync(LS_DAILY_GOAL, dailyGoal);
   useLocalStorageSync(LS_COUNTRY, country, String);
 
   const addShoppingItems = useCallback((items) => {
@@ -110,10 +115,11 @@ export function AppProvider({ children }) {
       shoppingList, addShoppingItems, toggleShoppingItem, removeShoppingItem, clearShopping,
       favorites, toggleFavorite, isFavorite,
       mealLog, addMealToLog, removeMealFromLog, clearMealLog,
+      dailyGoal, setDailyGoal,
       country, setCountry,
     }),
     [
-      ingredients, recipes, shoppingList, favorites, mealLog, country,
+      ingredients, recipes, shoppingList, favorites, mealLog, dailyGoal, country,
       addShoppingItems, toggleShoppingItem, removeShoppingItem, clearShopping,
       toggleFavorite, isFavorite,
       addMealToLog, removeMealFromLog, clearMealLog,

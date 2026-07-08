@@ -1,7 +1,17 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Utensils, Trash2, Clock, TrendingUp } from "lucide-react";
+import { Utensils, Trash2, Clock, TrendingUp, Target, X } from "lucide-react";
 import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "../components/ui/dialog";
 import { useApp } from "../context/AppContext";
 
 function ymd(iso) {
@@ -103,24 +113,44 @@ function AveragesBand({ stats }) {
 }
 
 
-function DailyTotals({ totals }) {
+function DailyTotals({ totals, goal }) {
+  const hasGoal = goal && goal.calories > 0;
+  const macros = [
+    { key: "calories", label: "kcal", value: totals.calories, target: goal?.calories || 0, accent: true },
+    { key: "protein_g", label: "protein", value: `${totals.protein_g}g`, raw: totals.protein_g, target: goal?.protein_g || 0 },
+    { key: "fat_g", label: "fat", value: `${totals.fat_g}g`, raw: totals.fat_g, target: goal?.fat_g || 0 },
+    { key: "carbs_g", label: "carbs", value: `${totals.carbs_g}g`, raw: totals.carbs_g, target: goal?.carbs_g || 0 },
+  ];
   return (
     <div className="grid grid-cols-4 gap-2 md:gap-4">
-      {[
-        { label: "kcal", value: totals.calories, accent: true },
-        { label: "protein", value: `${totals.protein_g}g` },
-        { label: "fat", value: `${totals.fat_g}g` },
-        { label: "carbs", value: `${totals.carbs_g}g` },
-      ].map((m) => (
-        <div key={m.label} className="text-center rounded-2xl bg-brand-bg py-4">
-          <div className={`font-serif-display text-2xl md:text-3xl font-medium leading-none ${m.accent ? "text-brand-primary" : "text-brand-text"}`}>
-            {m.value}
+      {macros.map((m) => {
+        const numeric = m.key === "calories" ? m.value : m.raw;
+        const pct = m.target > 0 ? Math.min(100, Math.round((numeric / m.target) * 100)) : 0;
+        const over = m.target > 0 && numeric > m.target;
+        return (
+          <div key={m.label} className="text-center rounded-2xl bg-brand-bg py-4 px-2">
+            <div className={`font-serif-display text-2xl md:text-3xl font-medium leading-none ${m.accent ? "text-brand-primary" : "text-brand-text"}`}>
+              {m.value}
+            </div>
+            {hasGoal && m.target > 0 && (
+              <>
+                <div className="text-[10px] text-brand-text-soft mt-2">
+                  of <span className="font-semibold text-brand-text">{m.target}{m.key === "calories" ? "" : "g"}</span>
+                </div>
+                <div className="mt-2 h-1 rounded-full bg-brand-line overflow-hidden mx-auto max-w-[80%]">
+                  <div
+                    className={`h-full rounded-full transition-all ${over ? "bg-brand-primary" : "bg-brand-secondary"}`}
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+              </>
+            )}
+            <div className="text-[10px] tracking-[0.18em] uppercase text-brand-text-soft mt-2">
+              {m.label}
+            </div>
           </div>
-          <div className="text-[10px] tracking-[0.18em] uppercase text-brand-text-soft mt-2">
-            {m.label}
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -162,7 +192,28 @@ function LogRow({ meal, onRemove }) {
 }
 
 export default function MealLog() {
-  const { mealLog, removeMealFromLog, clearMealLog } = useApp();
+  const { mealLog, removeMealFromLog, clearMealLog, dailyGoal, setDailyGoal } = useApp();
+  const [goalOpen, setGoalOpen] = useState(false);
+  const [goalDraft, setGoalDraft] = useState(dailyGoal);
+
+  const openGoal = () => { setGoalDraft(dailyGoal); setGoalOpen(true); };
+  const saveGoal = () => {
+    setDailyGoal({
+      calories: Math.max(0, parseInt(goalDraft.calories, 10) || 0),
+      protein_g: Math.max(0, parseInt(goalDraft.protein_g, 10) || 0),
+      fat_g: Math.max(0, parseInt(goalDraft.fat_g, 10) || 0),
+      carbs_g: Math.max(0, parseInt(goalDraft.carbs_g, 10) || 0),
+    });
+    setGoalOpen(false);
+  };
+  const clearGoal = () => {
+    setDailyGoal({ calories: 0, protein_g: 0, fat_g: 0, carbs_g: 0 });
+    setGoalDraft({ calories: 0, protein_g: 0, fat_g: 0, carbs_g: 0 });
+    setGoalOpen(false);
+  };
+  const hasGoal = dailyGoal && dailyGoal.calories > 0;
+
+  const todayKey = ymd(new Date().toISOString());
 
   const grouped = useMemo(() => {
     const g = new Map();
@@ -217,37 +268,118 @@ export default function MealLog() {
             {mealLog.length} meal{mealLog.length === 1 ? "" : "s"} tracked · running macro totals per day.
           </p>
         </div>
-        <Button
-          data-testid="clear-log-btn"
-          variant="outline"
-          onClick={clearMealLog}
-          className="rounded-full border-brand-text/15 text-brand-text bg-white hover:bg-brand-line/40"
-        >
-          Clear log
-        </Button>
+        <div className="flex items-center gap-2">
+          <Dialog open={goalOpen} onOpenChange={setGoalOpen}>
+            <DialogTrigger asChild>
+              <Button
+                data-testid="set-target-btn"
+                variant="outline"
+                onClick={openGoal}
+                className="rounded-full border-brand-text/15 text-brand-text bg-white hover:bg-brand-line/40"
+              >
+                <Target className="w-4 h-4 mr-2" strokeWidth={1.7} />
+                {hasGoal ? `${dailyGoal.calories} kcal target` : "Set daily target"}
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="rounded-3xl max-w-md">
+              <DialogHeader>
+                <DialogTitle className="font-serif-display text-2xl font-medium">
+                  Set a daily target
+                </DialogTitle>
+                <DialogDescription className="text-brand-text-soft">
+                  Leave a field at 0 to skip it. Calories is required to see progress bars.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid grid-cols-2 gap-4 py-4">
+                {[
+                  { key: "calories", label: "Calories (kcal)" },
+                  { key: "protein_g", label: "Protein (g)" },
+                  { key: "fat_g", label: "Fat (g)" },
+                  { key: "carbs_g", label: "Carbs (g)" },
+                ].map((f) => (
+                  <div key={f.key} className="space-y-1.5">
+                    <label className="text-xs tracking-[0.15em] uppercase font-semibold text-brand-text-soft">
+                      {f.label}
+                    </label>
+                    <Input
+                      data-testid={`goal-input-${f.key}`}
+                      type="number"
+                      min="0"
+                      inputMode="numeric"
+                      value={goalDraft[f.key] || ""}
+                      onChange={(e) => setGoalDraft({ ...goalDraft, [f.key]: e.target.value })}
+                      className="rounded-xl border-brand-line"
+                    />
+                  </div>
+                ))}
+              </div>
+              <DialogFooter className="flex flex-row justify-between sm:justify-between gap-2">
+                {hasGoal && (
+                  <Button
+                    data-testid="clear-target-btn"
+                    variant="ghost"
+                    onClick={clearGoal}
+                    className="text-brand-text-soft hover:text-brand-err"
+                  >
+                    <X className="w-4 h-4 mr-1" strokeWidth={1.7} /> Clear target
+                  </Button>
+                )}
+                <Button
+                  data-testid="save-target-btn"
+                  onClick={saveGoal}
+                  className="rounded-full bg-brand-primary hover:bg-brand-primary-dark text-white ml-auto"
+                >
+                  Save target
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          <Button
+            data-testid="clear-log-btn"
+            variant="outline"
+            onClick={clearMealLog}
+            className="rounded-full border-brand-text/15 text-brand-text bg-white hover:bg-brand-line/40"
+          >
+            Clear log
+          </Button>
+        </div>
       </div>
 
       {rolling && <AveragesBand stats={rolling} />}
 
       <div className="space-y-10">
-        {grouped.map((day) => (
-          <section key={day.key} data-testid={`log-day-${day.key}`} className="space-y-4">
-            <div className="flex items-end justify-between">
-              <h2 className="font-serif-display text-2xl md:text-3xl font-medium text-brand-text">
-                {day.label}
-              </h2>
-              <span className="text-xs text-brand-text-soft uppercase tracking-[0.18em] font-semibold">
-                {day.entries.length} {day.entries.length === 1 ? "meal" : "meals"}
-              </span>
-            </div>
-            <DailyTotals totals={day.totals} />
-            <ul className="bg-white border border-brand-line rounded-3xl divide-y divide-brand-line overflow-hidden">
-              {day.entries.map((meal) => (
-                <LogRow key={meal.id} meal={meal} onRemove={removeMealFromLog} />
-              ))}
-            </ul>
-          </section>
-        ))}
+        {grouped.map((day) => {
+          const isToday = day.key === todayKey;
+          const kcalLeft = hasGoal && isToday ? dailyGoal.calories - day.totals.calories : null;
+          return (
+            <section key={day.key} data-testid={`log-day-${day.key}`} className="space-y-4">
+              <div className="flex items-end justify-between">
+                <h2 className="font-serif-display text-2xl md:text-3xl font-medium text-brand-text">
+                  {day.label}
+                </h2>
+                <span className="text-xs text-brand-text-soft uppercase tracking-[0.18em] font-semibold">
+                  {isToday && kcalLeft !== null ? (
+                    kcalLeft > 0 ? (
+                      <span data-testid="kcal-left"><span className="text-brand-secondary-dark font-bold">{kcalLeft}</span> kcal left</span>
+                    ) : (
+                      <span data-testid="kcal-over" className="text-brand-primary">
+                        {Math.abs(kcalLeft)} kcal over
+                      </span>
+                    )
+                  ) : (
+                    `${day.entries.length} ${day.entries.length === 1 ? "meal" : "meals"}`
+                  )}
+                </span>
+              </div>
+              <DailyTotals totals={day.totals} goal={isToday ? dailyGoal : null} />
+              <ul className="bg-white border border-brand-line rounded-3xl divide-y divide-brand-line overflow-hidden">
+                {day.entries.map((meal) => (
+                  <LogRow key={meal.id} meal={meal} onRemove={removeMealFromLog} />
+                ))}
+              </ul>
+            </section>
+          );
+        })}
       </div>
 
       <p className="text-xs text-brand-text-soft text-center italic">
