@@ -87,6 +87,7 @@ class Recipe(BaseModel):
     instructions: List[str]
     nutrition: Nutrition = Field(default_factory=Nutrition)
     servings: int = 1
+    image_query: str = ""
 
 
 class SuggestResponse(BaseModel):
@@ -241,6 +242,7 @@ def _build_recipe(r: dict) -> Optional["Recipe"]:
             instructions=[str(x) for x in r.get("instructions", []) if isinstance(x, str)],
             servings=int(r.get("servings", 1) or 1),
             nutrition=_build_nutrition(r.get("nutrition")),
+            image_query=str(r.get("image_query", "")).strip().lower(),
         )
     except Exception:
         return None
@@ -264,7 +266,9 @@ async def suggest_recipes(req: SuggestRequest):
         "lowercase strings from the user's list that are used), missing_ingredients (list of lowercase "
         "items the user does NOT have), instructions (3–6 concise numbered steps), "
         "servings (integer, default 1), and nutrition (object with calories, protein_g, fat_g, carbs_g "
-        "as integers — estimate PER SERVING based on typical ingredient amounts; be realistic, not zero). "
+        "as integers — estimate PER SERVING based on typical ingredient amounts; be realistic, not zero), "
+        "and image_query (2-4 comma-separated lowercase keywords describing what the finished dish "
+        "would look like in a food photo, e.g. 'creamy chicken pasta, close up' or 'fried rice, bowl'). "
         'Return ONLY JSON of the form: {"recipes": [ {...}, {...} ]}'
     )
 
@@ -318,7 +322,9 @@ async def ask_recipes(req: AskRecipesRequest):
         "(one sentence), ingredients_used (the full ingredient list, lowercase), "
         "missing_ingredients (empty array here since we don't know what they have), "
         "instructions (3-8 concise numbered steps), servings (int), nutrition object "
-        "(calories, protein_g, fat_g, carbs_g per serving as integers, realistic). "
+        "(calories, protein_g, fat_g, carbs_g per serving as integers, realistic), and "
+        "image_query (2-4 lowercase comma-separated keywords describing the finished dish "
+        "for a food photo, e.g. 'chocolate chip cookies, close up'). "
         'Return ONLY JSON: {"recipes": [ {...}, {...} ]}'
     )
 

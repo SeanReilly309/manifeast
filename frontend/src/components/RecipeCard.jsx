@@ -1,12 +1,7 @@
 import { memo } from "react";
 import { Clock, ChefHat, ArrowRight, Heart } from "lucide-react";
 import { useApp } from "../context/AppContext";
-
-const RECIPE_IMG = [
-  "https://images.pexels.com/photos/13294537/pexels-photo-13294537.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
-  "https://images.pexels.com/photos/33515064/pexels-photo-33515064.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
-  "https://images.pexels.com/photos/8142046/pexels-photo-8142046.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
-];
+import { recipeImage, fallbackFoodImage } from "../lib/recipeImage";
 
 function difficultyTone(d) {
   if (d === "easy") return "bg-brand-secondary/15 text-brand-secondary-dark";
@@ -37,8 +32,9 @@ function RecipeCardBase({ recipe, index, onOpen }) {
     >
       <div className="relative aspect-[5/4] overflow-hidden">
         <img
-          src={RECIPE_IMG[index % RECIPE_IMG.length]}
+          src={recipeImage(recipe, index)}
           alt={recipe.title}
+          onError={(e) => { e.currentTarget.src = fallbackFoodImage(index); }}
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
         />
         <div className="absolute top-3 left-3 flex gap-2">

@@ -3,12 +3,7 @@ import { ArrowLeft, Clock, ChefHat, ShoppingBasket, Check, Heart, Share2, Play }
 import { Button } from "../components/ui/button";
 import { toast } from "sonner";
 import { useApp } from "../context/AppContext";
-
-const RECIPE_IMG = [
-  "https://images.pexels.com/photos/13294537/pexels-photo-13294537.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
-  "https://images.pexels.com/photos/33515064/pexels-photo-33515064.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
-  "https://images.pexels.com/photos/8142046/pexels-photo-8142046.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
-];
+import { recipeImage, fallbackFoodImage } from "../lib/recipeImage";
 
 function buildShareText(recipe) {
   const lines = [
@@ -96,8 +91,9 @@ export default function RecipeDetail() {
       <div className="grid md:grid-cols-2 gap-8 md:gap-12 items-start">
         <div className="relative rounded-3xl overflow-hidden border border-brand-line">
           <img
-            src={RECIPE_IMG[i % RECIPE_IMG.length]}
+            src={recipeImage(recipe, i, { width: 940, height: 900 })}
             alt={recipe.title}
+            onError={(e) => { e.currentTarget.src = fallbackFoodImage(i); }}
             className="w-full h-[360px] md:h-[480px] object-cover"
           />
           <button
