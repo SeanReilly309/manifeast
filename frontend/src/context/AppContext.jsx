@@ -8,6 +8,7 @@ const LS_RECIPES = "wcie_recipes";
 const LS_SHOPPING = "wcie_shopping";
 const LS_COUNTRY = "wcie_country";
 const LS_FAVORITES = "manifeast_favorites";
+const LS_MEAL_LOG = "manifeast_meal_log";
 
 function readJSON(key, fallback) {
   try {
@@ -35,6 +36,7 @@ export function AppProvider({ children }) {
   const [recipes, setRecipes] = useState(() => readJSON(LS_RECIPES, []));
   const [shoppingList, setShoppingList] = useState(() => readJSON(LS_SHOPPING, []));
   const [favorites, setFavorites] = useState(() => readJSON(LS_FAVORITES, []));
+  const [mealLog, setMealLog] = useState(() => readJSON(LS_MEAL_LOG, []));
   const [country, setCountry] = useState(() => {
     try {
       return localStorage.getItem(LS_COUNTRY) || detectDefaultCountry();
@@ -47,6 +49,7 @@ export function AppProvider({ children }) {
   useLocalStorageSync(LS_RECIPES, recipes);
   useLocalStorageSync(LS_SHOPPING, shoppingList);
   useLocalStorageSync(LS_FAVORITES, favorites);
+  useLocalStorageSync(LS_MEAL_LOG, mealLog);
   useLocalStorageSync(LS_COUNTRY, country, String);
 
   const addShoppingItems = useCallback((items) => {
@@ -87,18 +90,33 @@ export function AppProvider({ children }) {
   const favoriteIds = useMemo(() => new Set(favorites.map(recipeKey)), [favorites]);
   const isFavorite = useCallback((recipe) => favoriteIds.has(recipeKey(recipe)), [favoriteIds]);
 
+  const addMealToLog = useCallback((analysis) => {
+    setMealLog((prev) => [
+      { ...analysis, logged_at: new Date().toISOString() },
+      ...prev,
+    ]);
+  }, []);
+
+  const removeMealFromLog = useCallback((id) => {
+    setMealLog((prev) => prev.filter((m) => m.id !== id));
+  }, []);
+
+  const clearMealLog = useCallback(() => setMealLog([]), []);
+
   const value = useMemo(
     () => ({
       ingredients, setIngredients,
       recipes, setRecipes,
       shoppingList, addShoppingItems, toggleShoppingItem, removeShoppingItem, clearShopping,
       favorites, toggleFavorite, isFavorite,
+      mealLog, addMealToLog, removeMealFromLog, clearMealLog,
       country, setCountry,
     }),
     [
-      ingredients, recipes, shoppingList, favorites, country,
+      ingredients, recipes, shoppingList, favorites, mealLog, country,
       addShoppingItems, toggleShoppingItem, removeShoppingItem, clearShopping,
       toggleFavorite, isFavorite,
+      addMealToLog, removeMealFromLog, clearMealLog,
     ]
   );
 

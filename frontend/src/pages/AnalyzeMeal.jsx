@@ -1,8 +1,10 @@
 import { useRef, useState, useCallback } from "react";
-import { Camera, Upload, Loader2, Sparkles, RefreshCw, Share2 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Camera, Upload, Loader2, Sparkles, RefreshCw, Share2, History } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { toast } from "sonner";
 import { analyzeMeal } from "../lib/api";
+import { useApp } from "../context/AppContext";
 
 const PLATE_IMG =
   "https://images.pexels.com/photos/1640774/pexels-photo-1640774.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=900&w=900";
@@ -27,6 +29,7 @@ function confidenceTone(c) {
 }
 
 export default function AnalyzeMeal() {
+  const { addMealToLog, mealLog } = useApp();
   const [preview, setPreview] = useState(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [result, setResult] = useState(null);
@@ -53,13 +56,15 @@ export default function AnalyzeMeal() {
         setResult(null);
       } else {
         setResult(data);
+        addMealToLog(data);
+        toast.success("Saved to your meal log");
       }
     } catch (e) {
       toast.error(e?.response?.data?.detail || e?.message || "Analysis failed");
     } finally {
       setAnalyzing(false);
     }
-  }, []);
+  }, [addMealToLog]);
 
   const reset = () => {
     setResult(null);
@@ -90,16 +95,34 @@ export default function AnalyzeMeal() {
   return (
     <div className="space-y-10" data-testid="analyze-page">
       <div className="space-y-3 animate-fade-up">
-        <p className="text-xs tracking-[0.22em] uppercase font-semibold text-brand-primary">
-          Analyze
-        </p>
-        <h1 className="font-serif-display text-4xl md:text-5xl font-medium text-brand-text">
-          Snap a plate. <span className="italic text-brand-primary">Know your macros.</span>
-        </h1>
-        <p className="text-brand-text-soft max-w-xl">
-          Point your camera at any meal you&rsquo;re about to eat &mdash; we&rsquo;ll estimate
-          calories, protein, fat and carbs in seconds.
-        </p>
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div className="space-y-3">
+            <p className="text-xs tracking-[0.22em] uppercase font-semibold text-brand-primary">
+              Analyze
+            </p>
+            <h1 className="font-serif-display text-4xl md:text-5xl font-medium text-brand-text">
+              Snap a plate. <span className="italic text-brand-primary">Know your macros.</span>
+            </h1>
+            <p className="text-brand-text-soft max-w-xl">
+              Point your camera at any meal you&rsquo;re about to eat &mdash; we&rsquo;ll estimate
+              calories, protein, fat and carbs in seconds.
+            </p>
+          </div>
+          <Link to="/log">
+            <Button
+              data-testid="view-log-btn"
+              variant="outline"
+              className="rounded-full border-brand-text/15 text-brand-text bg-white hover:bg-brand-line/40"
+            >
+              <History className="w-4 h-4 mr-2" strokeWidth={1.7} />
+              Meal log {mealLog.length > 0 && (
+                <span className="ml-2 bg-brand-primary text-white text-xs rounded-full px-2 py-0.5">
+                  {mealLog.length}
+                </span>
+              )}
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <div className="grid md:grid-cols-2 gap-6 md:gap-10 items-start">
