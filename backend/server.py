@@ -63,6 +63,11 @@ class SuggestRequest(BaseModel):
     max_recipes: int = 5
 
 
+class AskRecipesRequest(BaseModel):
+    query: str
+    max_recipes: int = 5
+
+
 class Nutrition(BaseModel):
     calories: int = 0
     protein_g: int = 0
@@ -290,6 +295,55 @@ async def suggest_recipes(req: SuggestRequest):
         {
             "id": suggestion_id,
             "ingredients": req.ingredients,
+            "recipes": [r.model_dump() for r in recipes],
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+    )
+    return SuggestResponse(id=suggestion_id, recipes=recipes)
+
+
+@api_router.post("/ask-recipes", response_model=SuggestResponse)
+async def ask_recipes(req: AskRecipesRequest):
+    q = (req.query or "").strip()
+    if not q:
+        raise HTTPException(status_code=400, detail="query is required")
+    n = max(3, min(req.max_recipes, 6))
+
+    system = (
+        "You are a friendly recipe assistant. The user will tell you a dish, cuisine, or "
+        f"craving. Return {n} DIFFERENT variations of it &mdash; classic, plus interesting "
+        "twists (e.g. for 'cookies': classic chocolate chip, oatmeal raisin, peanut butter, "
+        "no-bake, and one creative one). For each recipe return the same JSON schema as before: "
+        "title, emoji, difficulty ('easy'|'medium'|'hard'), time_minutes (int), description "
+        "(one sentence), ingredients_used (the full ingredient list, lowercase), "
+        "missing_ingredients (empty array here since we don't know what they have), "
+        "instructions (3-8 concise numbered steps), servings (int), nutrition object "
+        "(calories, protein_g, fat_g, carbs_g per serving as integers, realistic). "
+        'Return ONLY JSON: {"recipes": [ {...}, {...} ]}'
+    )
+
+    user_msg = UserMessage(text=f"Give me {n} different variations for: {q}")
+    recipes: List[Recipe] = []
+    try:
+        raw = await _run_chat(system, user_msg)
+        data = _extract_json(raw)
+        raw_recipes = data.get("recipes", []) if isinstance(data, dict) else []
+        for r in raw_recipes:
+            built = _build_recipe(r)
+            if built is not None:
+                recipes.append(built)
+    except Exception as e:
+        logging.exception("ask-recipes failed")
+        raise HTTPException(status_code=500, detail=f"Recipe search failed: {e}")
+
+    if not recipes:
+        raise HTTPException(status_code=500, detail="No recipes returned")
+
+    suggestion_id = str(uuid.uuid4())
+    await db.suggestions.insert_one(
+        {
+            "id": suggestion_id,
+            "query": q,
             "recipes": [r.model_dump() for r in recipes],
             "created_at": datetime.now(timezone.utc).isoformat(),
         }

@@ -14,6 +14,7 @@ import About from "@/pages/About";
 import AnalyzeMeal from "@/pages/AnalyzeMeal";
 import MealLog from "@/pages/MealLog";
 import Coach from "@/pages/Coach";
+import Ask from "@/pages/Ask";
 import GoalCelebration from "@/components/GoalCelebration";
 
 const TOAST_OPTIONS = {
@@ -40,6 +41,7 @@ function App() {
               <Route path="/analyze" element={<AnalyzeMeal />} />
               <Route path="/log" element={<MealLog />} />
               <Route path="/coach" element={<Coach />} />
+              <Route path="/ask" element={<Ask />} />
             </Route>
             <Route path="/recipe/:idx/cook" element={<CookMode />} />
           </Routes>

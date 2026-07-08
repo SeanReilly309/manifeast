@@ -1,14 +1,51 @@
-import { Link } from "react-router-dom";
-import { Camera, PencilLine, Sparkles, Clock, ShoppingBasket } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { Camera, PencilLine, Sparkles, Clock, ShoppingBasket, Search } from "lucide-react";
 import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
 import TodayDashboard from "../components/TodayDashboard";
 
 const HERO_IMG =
   "https://images.pexels.com/photos/1640774/pexels-photo-1640774.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=900&w=900";
 
+function HomeSearchBar() {
+  const [q, setQ] = useState("");
+  const navigate = useNavigate();
+  const go = () => {
+    const clean = q.trim();
+    if (!clean) { navigate("/ask"); return; }
+    navigate(`/ask?q=${encodeURIComponent(clean)}`);
+  };
+  return (
+    <div className="bg-white border border-brand-line rounded-3xl p-3 md:p-4 flex gap-2">
+      <div className="flex-1 relative">
+        <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-brand-text-soft" strokeWidth={1.8} />
+        <Input
+          data-testid="home-ask-input"
+          value={q}
+          placeholder="Ask for a recipe — e.g. cookies, ramen…"
+          onChange={(e) => setQ(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); go(); } }}
+          className="h-12 pl-11 pr-4 text-base rounded-2xl border-transparent bg-brand-bg focus-visible:ring-brand-primary/40"
+        />
+      </div>
+      <Button
+        data-testid="home-ask-btn"
+        onClick={go}
+        className="rounded-2xl h-12 px-5 font-semibold bg-brand-primary hover:bg-brand-primary-dark text-white"
+      >
+        <Sparkles className="w-4 h-4" strokeWidth={1.7} />
+      </Button>
+    </div>
+  );
+}
+
 export default function Home() {
   return (
-    <div className="space-y-20 md:space-y-28" data-testid="home-page">
+    <div className="space-y-12 md:space-y-20" data-testid="home-page">
+      {/* Recipe search — mobile-first entry point */}
+      <HomeSearchBar />
+
       {/* TODAY DASHBOARD — first thing users see */}
       <TodayDashboard />
 

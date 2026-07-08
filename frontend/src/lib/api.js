@@ -33,3 +33,11 @@ export const analyzeMeal = async (imageBase64, mimeType = "image/jpeg") => {
   });
   return data;
 };
+
+export const askRecipes = async (query, maxRecipes = 5) => {
+  const { data } = await client.post("/ask-recipes", {
+    query,
+    max_recipes: maxRecipes,
+  });
+  return data;
+};

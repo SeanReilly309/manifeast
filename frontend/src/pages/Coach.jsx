@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { toast } from "sonner";
-import { Calculator, Target, Activity, Check } from "lucide-react";
+import { Calculator, Target, Activity, Check, Footprints, Dumbbell, Bike, Trophy, Zap } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import {
@@ -14,12 +14,18 @@ import { useApp } from "../context/AppContext";
 
 const LS_COACH_PROFILE = "manifeast_coach_profile";
 
-const ACTIVITY = [
-  { id: "sedentary", label: "Sedentary — desk job, little to no exercise", mult: 1.2 },
-  { id: "light", label: "Light — exercise 1–3 days/week", mult: 1.375 },
-  { id: "moderate", label: "Moderate — exercise 3–5 days/week", mult: 1.55 },
-  { id: "active", label: "Active — exercise 6–7 days/week", mult: 1.725 },
-  { id: "very", label: "Very active — training 2x/day or hard labor", mult: 1.9 },
+const EXERCISE_TYPES = [
+  { id: "walking", label: "Walking", icon: Footprints, mult: 0.7 },
+  { id: "cardio", label: "Running / cardio", icon: Bike, mult: 1.15 },
+  { id: "weights", label: "Lifting weights", icon: Dumbbell, mult: 0.9 },
+  { id: "mixed", label: "Mixed / cross-train", icon: Activity, mult: 1.0 },
+  { id: "sports", label: "Sports", icon: Trophy, mult: 1.05 },
+];
+
+const INTENSITIES = [
+  { id: "easy", label: "Easy", description: "Gentle pace", baseKcal: 200 },
+  { id: "moderate", label: "Moderate", description: "Working up a sweat", baseKcal: 370 },
+  { id: "hard", label: "Hard", description: "Maxing effort", baseKcal: 550 },
 ];
 
 const GOALS = [
@@ -36,7 +42,7 @@ function bmiCategory(bmi) {
 }
 
 function compute(profile) {
-  const { age, sex, height_cm, weight_kg, activity, goal } = profile;
+  const { age, sex, height_cm, weight_kg, exerciseDays, exerciseType, exerciseIntensity, goal } = profile;
   if (!age || !height_cm || !weight_kg) return null;
 
   const bmi = weight_kg / Math.pow(height_cm / 100, 2);
@@ -44,12 +50,21 @@ function compute(profile) {
     sex === "female"
       ? 10 * weight_kg + 6.25 * height_cm - 5 * age - 161
       : 10 * weight_kg + 6.25 * height_cm - 5 * age + 5;
-  const activityMult = ACTIVITY.find((a) => a.id === activity)?.mult || 1.2;
-  const tdee = bmr * activityMult;
+
+  // Sedentary baseline
+  const baseline = bmr * 1.2;
+
+  // Exercise contribution
+  const days = Math.max(0, Math.min(7, parseInt(exerciseDays, 10) || 0));
+  const intensity = INTENSITIES.find((i) => i.id === exerciseIntensity) || INTENSITIES[1];
+  const type = EXERCISE_TYPES.find((t) => t.id === exerciseType) || EXERCISE_TYPES[3];
+  const sessionKcal = intensity.baseKcal * type.mult;
+  const dailyExerciseKcal = (days * sessionKcal) / 7;
+
+  const tdee = baseline + dailyExerciseKcal;
   const delta = GOALS.find((g) => g.id === goal)?.delta || 0;
   const targetKcal = Math.max(1200, Math.round(tdee + delta));
 
-  // Macros — 1.8 g protein / kg, 27% fat, rest carbs
   const protein_g = Math.round(weight_kg * 1.8);
   const fat_g = Math.round((targetKcal * 0.27) / 9);
   const proteinKcal = protein_g * 4;
@@ -61,6 +76,7 @@ function compute(profile) {
     category: bmiCategory(bmi),
     bmr: Math.round(bmr),
     tdee: Math.round(tdee),
+    dailyExerciseKcal: Math.round(dailyExerciseKcal),
     targetKcal,
     protein_g,
     fat_g,
@@ -73,7 +89,9 @@ const DEFAULT_PROFILE = {
   sex: "male",
   height_cm: "",
   weight_kg: "",
-  activity: "light",
+  exerciseDays: 3,
+  exerciseType: "mixed",
+  exerciseIntensity: "moderate",
   goal: "maintain",
 };
 
@@ -117,7 +135,7 @@ export default function Coach() {
   };
 
   return (
-    <div className="space-y-10" data-testid="coach-page">
+    <div className="space-y-8 md:space-y-10" data-testid="coach-page">
       <div className="space-y-3 animate-fade-up">
         <p className="text-xs tracking-[0.22em] uppercase font-semibold text-brand-primary">
           Coach
@@ -126,30 +144,30 @@ export default function Coach() {
           What should <span className="italic text-brand-primary">you</span> be eating?
         </h1>
         <p className="text-brand-text-soft max-w-2xl">
-          Tell us a bit about yourself and we&rsquo;ll estimate your BMI, your daily calorie
-          need, and a sensible macro split to hit your goal &mdash; then apply it to your log
-          in one tap.
+          Tell us a bit about yourself &mdash; including exactly how many days you moved
+          this week and what you did &mdash; and we&rsquo;ll give you an honest daily calorie
+          and macro target.
         </p>
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-8">
+      <div className="grid lg:grid-cols-2 gap-6 lg:gap-8">
         {/* FORM */}
-        <div className="bg-white border border-brand-line rounded-3xl p-6 md:p-8 space-y-5">
+        <div className="bg-white border border-brand-line rounded-3xl p-5 md:p-8 space-y-6">
           <p className="text-xs tracking-[0.22em] uppercase font-semibold text-brand-text-soft flex items-center gap-2">
             <Calculator className="w-3.5 h-3.5" strokeWidth={2} /> About you
           </p>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="text-xs tracking-[0.15em] uppercase font-semibold text-brand-text-soft">Age</label>
               <Input data-testid="coach-age" type="number" min="14" max="99" inputMode="numeric"
                 value={profile.age} onChange={(e) => set("age", e.target.value)}
-                className="rounded-xl border-brand-line" placeholder="e.g. 32" />
+                className="rounded-xl border-brand-line h-12 text-base" placeholder="32" />
             </div>
             <div className="space-y-1.5">
               <label className="text-xs tracking-[0.15em] uppercase font-semibold text-brand-text-soft">Sex</label>
               <Select value={profile.sex} onValueChange={(v) => set("sex", v)}>
-                <SelectTrigger data-testid="coach-sex" className="rounded-xl border-brand-line bg-white">
+                <SelectTrigger data-testid="coach-sex" className="rounded-xl border-brand-line bg-white h-12 text-base">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="rounded-2xl">
@@ -160,37 +178,109 @@ export default function Coach() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="text-xs tracking-[0.15em] uppercase font-semibold text-brand-text-soft">Height (cm)</label>
               <Input data-testid="coach-height" type="number" min="120" max="230" inputMode="decimal"
                 value={profile.height_cm} onChange={(e) => set("height_cm", e.target.value)}
-                className="rounded-xl border-brand-line" placeholder="e.g. 175" />
+                className="rounded-xl border-brand-line h-12 text-base" placeholder="175" />
             </div>
             <div className="space-y-1.5">
               <label className="text-xs tracking-[0.15em] uppercase font-semibold text-brand-text-soft">Weight (kg)</label>
               <Input data-testid="coach-weight" type="number" min="30" max="300" inputMode="decimal"
                 value={profile.weight_kg} onChange={(e) => set("weight_kg", e.target.value)}
-                className="rounded-xl border-brand-line" placeholder="e.g. 72" />
+                className="rounded-xl border-brand-line h-12 text-base" placeholder="72" />
             </div>
           </div>
 
-          <div className="space-y-1.5">
+          {/* Exercise days per week */}
+          <div className="space-y-2">
             <label className="text-xs tracking-[0.15em] uppercase font-semibold text-brand-text-soft flex items-center gap-2">
-              <Activity className="w-3 h-3" strokeWidth={2} /> Weekly activity
+              <Activity className="w-3 h-3" strokeWidth={2} /> Days you exercised this week
             </label>
-            <Select value={profile.activity} onValueChange={(v) => set("activity", v)}>
-              <SelectTrigger data-testid="coach-activity" className="rounded-xl border-brand-line bg-white">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="rounded-2xl">
-                {ACTIVITY.map((a) => (
-                  <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="grid grid-cols-8 gap-1.5" data-testid="coach-days-picker">
+              {[0, 1, 2, 3, 4, 5, 6, 7].map((d) => {
+                const active = profile.exerciseDays === d;
+                return (
+                  <button
+                    key={d}
+                    data-testid={`coach-days-${d}`}
+                    onClick={() => set("exerciseDays", d)}
+                    className={`aspect-square rounded-xl font-semibold text-sm transition-all ${
+                      active
+                        ? "bg-brand-primary text-white shadow-[0_4px_12px_rgba(224,122,95,0.3)]"
+                        : "bg-brand-bg text-brand-text-soft hover:bg-brand-line/60"
+                    }`}
+                  >
+                    {d}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
+          {/* Exercise type */}
+          {profile.exerciseDays > 0 && (
+            <div className="space-y-2">
+              <label className="text-xs tracking-[0.15em] uppercase font-semibold text-brand-text-soft">
+                What did you do?
+              </label>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2" data-testid="coach-type-picker">
+                {EXERCISE_TYPES.map((t) => {
+                  const active = profile.exerciseType === t.id;
+                  const Icon = t.icon;
+                  return (
+                    <button
+                      key={t.id}
+                      data-testid={`coach-type-${t.id}`}
+                      onClick={() => set("exerciseType", t.id)}
+                      className={`rounded-2xl px-3 py-3.5 text-sm font-semibold text-left transition-all flex items-center gap-2.5 ${
+                        active
+                          ? "bg-brand-primary text-white shadow-[0_4px_12px_rgba(224,122,95,0.3)]"
+                          : "bg-brand-bg text-brand-text-soft hover:bg-brand-line/60"
+                      }`}
+                    >
+                      <Icon className="w-4 h-4 flex-shrink-0" strokeWidth={1.8} />
+                      <span className="truncate">{t.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Intensity */}
+          {profile.exerciseDays > 0 && (
+            <div className="space-y-2">
+              <label className="text-xs tracking-[0.15em] uppercase font-semibold text-brand-text-soft flex items-center gap-2">
+                <Zap className="w-3 h-3" strokeWidth={2} /> How hard?
+              </label>
+              <div className="grid grid-cols-3 gap-2" data-testid="coach-intensity-picker">
+                {INTENSITIES.map((it) => {
+                  const active = profile.exerciseIntensity === it.id;
+                  return (
+                    <button
+                      key={it.id}
+                      data-testid={`coach-intensity-${it.id}`}
+                      onClick={() => set("exerciseIntensity", it.id)}
+                      className={`rounded-2xl px-2 py-3.5 transition-all ${
+                        active
+                          ? "bg-brand-primary text-white shadow-[0_4px_12px_rgba(224,122,95,0.3)]"
+                          : "bg-brand-bg text-brand-text-soft hover:bg-brand-line/60"
+                      }`}
+                    >
+                      <div className="text-sm font-semibold">{it.label}</div>
+                      <div className={`text-[10px] mt-0.5 ${active ? "text-white/80" : "text-brand-text-soft"}`}>
+                        {it.description}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Goal */}
           <div className="space-y-2">
             <label className="text-xs tracking-[0.15em] uppercase font-semibold text-brand-text-soft flex items-center gap-2">
               <Target className="w-3 h-3" strokeWidth={2} /> Your goal
@@ -203,14 +293,14 @@ export default function Coach() {
                     key={g.id}
                     data-testid={`coach-goal-${g.id}`}
                     onClick={() => set("goal", g.id)}
-                    className={`rounded-2xl px-3 py-3 text-sm font-semibold text-center transition-all ${
+                    className={`rounded-2xl px-2 py-3 text-sm font-semibold text-center transition-all ${
                       active
                         ? "bg-brand-primary text-white shadow-[0_4px_12px_rgba(224,122,95,0.3)]"
                         : "bg-white border border-brand-line text-brand-text-soft hover:border-brand-primary/40 hover:text-brand-text"
                     }`}
                   >
                     <div>{g.label}</div>
-                    <div className={`text-[10px] font-normal mt-0.5 ${active ? "text-white/80" : "text-brand-text-soft"}`}>
+                    <div className={`text-[10px] font-normal mt-0.5 leading-tight ${active ? "text-white/80" : "text-brand-text-soft"}`}>
                       {g.description}
                     </div>
                   </button>
@@ -253,7 +343,7 @@ export default function Coach() {
                       <span className="text-white/70 text-sm uppercase tracking-[0.18em]">kcal / day</span>
                     </div>
                     <p className="text-xs text-white/50 italic">
-                      Maintenance TDEE {result.tdee} kcal &middot; BMR {result.bmr} kcal.
+                      Maintenance TDEE {result.tdee} kcal &middot; BMR {result.bmr} kcal &middot; exercise adds ~{result.dailyExerciseKcal} kcal/day.
                     </p>
                   </div>
 
