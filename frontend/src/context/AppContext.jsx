@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { detectDefaultCountry } from "../lib/retailers";
 
 const AppContext = createContext(null);
@@ -10,6 +11,7 @@ const LS_COUNTRY = "wcie_country";
 const LS_FAVORITES = "manifeast_favorites";
 const LS_MEAL_LOG = "manifeast_meal_log";
 const LS_DAILY_GOAL = "manifeast_daily_goal";
+const LS_GOAL_CELEBRATED = "manifeast_goal_celebrated";
 
 function readJSON(key, fallback) {
   try {
@@ -32,6 +34,11 @@ function useLocalStorageSync(key, value, serializer = JSON.stringify) {
 
 const recipeKey = (r) => r.id || r.title;
 
+function todayYmd() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 export function AppProvider({ children }) {
   const [ingredients, setIngredients] = useState(() => readJSON(LS_INGREDIENTS, []));
   const [recipes, setRecipes] = useState(() => readJSON(LS_RECIPES, []));
@@ -41,6 +48,10 @@ export function AppProvider({ children }) {
   const [dailyGoal, setDailyGoal] = useState(() =>
     readJSON(LS_DAILY_GOAL, { calories: 0, protein_g: 0, fat_g: 0, carbs_g: 0 })
   );
+  const [goalCelebratedDate, setGoalCelebratedDate] = useState(() => {
+    try { return localStorage.getItem(LS_GOAL_CELEBRATED) || ""; } catch { return ""; }
+  });
+  const [celebrating, setCelebrating] = useState(false);
   const [country, setCountry] = useState(() => {
     try {
       return localStorage.getItem(LS_COUNTRY) || detectDefaultCountry();
@@ -55,6 +66,7 @@ export function AppProvider({ children }) {
   useLocalStorageSync(LS_FAVORITES, favorites);
   useLocalStorageSync(LS_MEAL_LOG, mealLog);
   useLocalStorageSync(LS_DAILY_GOAL, dailyGoal);
+  useLocalStorageSync(LS_GOAL_CELEBRATED, goalCelebratedDate, String);
   useLocalStorageSync(LS_COUNTRY, country, String);
 
   const addShoppingItems = useCallback((items) => {
@@ -108,6 +120,31 @@ export function AppProvider({ children }) {
 
   const clearMealLog = useCallback(() => setMealLog([]), []);
 
+  // Goal-met celebration: fires once per day when today's calories cross the target.
+  useEffect(() => {
+    const target = dailyGoal?.calories || 0;
+    if (target <= 0) return;
+    const key = todayYmd();
+    if (goalCelebratedDate === key) return;
+
+    const todaysKcal = mealLog.reduce((acc, m) => {
+      const d = new Date(m.logged_at);
+      const mk = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      return mk === key ? acc + (m.nutrition?.calories || 0) : acc;
+    }, 0);
+
+    if (todaysKcal >= target) {
+      setGoalCelebratedDate(key);
+      setCelebrating(true);
+      toast.success("Daily target met — nice work!", {
+        description: `${todaysKcal} of ${target} kcal logged today.`,
+        duration: 5000,
+      });
+      const t = setTimeout(() => setCelebrating(false), 2400);
+      return () => clearTimeout(t);
+    }
+  }, [mealLog, dailyGoal, goalCelebratedDate]);
+
   const value = useMemo(
     () => ({
       ingredients, setIngredients,
@@ -116,10 +153,11 @@ export function AppProvider({ children }) {
       favorites, toggleFavorite, isFavorite,
       mealLog, addMealToLog, removeMealFromLog, clearMealLog,
       dailyGoal, setDailyGoal,
+      celebrating,
       country, setCountry,
     }),
     [
-      ingredients, recipes, shoppingList, favorites, mealLog, dailyGoal, country,
+      ingredients, recipes, shoppingList, favorites, mealLog, dailyGoal, celebrating, country,
       addShoppingItems, toggleShoppingItem, removeShoppingItem, clearShopping,
       toggleFavorite, isFavorite,
       addMealToLog, removeMealFromLog, clearMealLog,

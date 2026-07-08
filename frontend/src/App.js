@@ -13,6 +13,7 @@ import CookMode from "@/pages/CookMode";
 import About from "@/pages/About";
 import AnalyzeMeal from "@/pages/AnalyzeMeal";
 import MealLog from "@/pages/MealLog";
+import GoalCelebration from "@/components/GoalCelebration";
 
 const TOAST_OPTIONS = {
   style: {
@@ -41,6 +42,7 @@ function App() {
             <Route path="/recipe/:idx/cook" element={<CookMode />} />
           </Routes>
         </BrowserRouter>
+        <GoalCelebration />
         <Toaster position="top-center" richColors toastOptions={TOAST_OPTIONS} />
       </AppProvider>
     </div>
