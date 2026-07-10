@@ -95,10 +95,75 @@ function parseToken(tok) {
 
 export function scaleQuantity(str, factor) {
   if (!str || factor === 1) return str;
-  return String(str).replace(TOKEN_REGEX, (match) => {
+  const scaled = String(str).replace(TOKEN_REGEX, (match) => {
     const value = parseToken(match);
     if (value === null) return match;
     return formatNumber(value * factor);
+  });
+  return pluralizeUnits(scaled);
+}
+
+// Pluralize (or de-pluralize) common english measurement units based on the
+// preceding numeric value. Only touches full-word units; short units (tsp,
+// tbsp, oz, g, ml, kg, l) are left alone.
+const UNIT_SINGULAR_TO_PLURAL = {
+  cup: "cups",
+  tablespoon: "tablespoons",
+  teaspoon: "teaspoons",
+  ounce: "ounces",
+  pound: "pounds",
+  pint: "pints",
+  quart: "quarts",
+  gallon: "gallons",
+  stick: "sticks",
+  slice: "slices",
+  clove: "cloves",
+  egg: "eggs",
+  sprig: "sprigs",
+  sheet: "sheets",
+  can: "cans",
+  jar: "jars",
+  packet: "packets",
+  cube: "cubes",
+  piece: "pieces",
+  leaf: "leaves",
+  head: "heads",
+  bunch: "bunches",
+  stalk: "stalks",
+  strip: "strips",
+  fillet: "fillets",
+};
+const UNIT_PLURAL_TO_SINGULAR = Object.fromEntries(
+  Object.entries(UNIT_SINGULAR_TO_PLURAL).map(([s, p]) => [p, s])
+);
+const ALL_UNITS = [
+  ...Object.keys(UNIT_SINGULAR_TO_PLURAL),
+  ...Object.values(UNIT_SINGULAR_TO_PLURAL),
+];
+const UNIT_REGEX = new RegExp(
+  "(\\d+(?:\\.\\d+)?(?:\\s+\\d+\\/\\d+)?|\\d+\\/\\d+)(\\s+)(" +
+    ALL_UNITS.join("|") +
+    ")\\b",
+  "gi"
+);
+
+function pluralizeUnits(str) {
+  return str.replace(UNIT_REGEX, (_, numStr, ws, unit) => {
+    const value = parseToken(numStr);
+    if (value === null) return _;
+    const lc = unit.toLowerCase();
+    const shouldBePlural = value > 1;
+    let out = unit;
+    if (shouldBePlural && UNIT_SINGULAR_TO_PLURAL[lc]) {
+      out = UNIT_SINGULAR_TO_PLURAL[lc];
+    } else if (!shouldBePlural && UNIT_PLURAL_TO_SINGULAR[lc]) {
+      out = UNIT_PLURAL_TO_SINGULAR[lc];
+    }
+    // Preserve capitalization of first char (e.g. "Cup" -> "Cups")
+    if (unit[0] === unit[0].toUpperCase()) {
+      out = out.charAt(0).toUpperCase() + out.slice(1);
+    }
+    return `${numStr}${ws}${out}`;
   });
 }
 
