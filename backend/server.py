@@ -68,6 +68,18 @@ class AskRecipesRequest(BaseModel):
     max_recipes: int = 5
 
 
+class CoachHint(BaseModel):
+    target_kcal: Optional[int] = None
+    protein_g: Optional[int] = None
+    goal: Optional[str] = None  # 'lose' | 'maintain' | 'gain'
+
+
+class InspireRequest(BaseModel):
+    category: str  # breakfast | lunch | dinner | snack | dessert
+    count: int = 8
+    coach: Optional[CoachHint] = None
+
+
 class Nutrition(BaseModel):
     calories: int = 0
     protein_g: int = 0
@@ -392,6 +404,92 @@ async def ask_recipes(req: AskRecipesRequest):
         {
             "id": suggestion_id,
             "query": q,
+            "recipes": [r.model_dump() for r in recipes],
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+    )
+    return SuggestResponse(id=suggestion_id, recipes=recipes)
+
+
+@api_router.post("/inspire", response_model=SuggestResponse)
+async def inspire_meals(req: InspireRequest):
+    category = (req.category or "").strip().lower()
+    allowed = {"breakfast", "lunch", "dinner", "snack", "dessert"}
+    if category not in allowed:
+        raise HTTPException(
+            status_code=400,
+            detail=f"category must be one of {sorted(allowed)}",
+        )
+    n = max(4, min(req.count, 10))
+
+    coach_hint = ""
+    if req.coach:
+        parts = []
+        if req.coach.target_kcal:
+            parts.append(f"daily calorie target ~{req.coach.target_kcal} kcal")
+        if req.coach.protein_g:
+            parts.append(f"daily protein target ~{req.coach.protein_g}g")
+        if req.coach.goal:
+            goal_map = {
+                "lose": "trying to lose weight (lean, higher-protein, lower-calorie choices)",
+                "gain": "trying to gain muscle (calorie-dense, high-protein choices)",
+                "maintain": "maintaining weight (balanced macros)",
+            }
+            parts.append(goal_map.get(req.coach.goal, ""))
+        if parts:
+            coach_hint = (
+                " The user is " + "; ".join([p for p in parts if p]) + ". "
+                "Gently bias picks toward this goal but keep the list interesting and varied."
+            )
+
+    system = (
+        f"You are a creative recipe curator. Suggest {n} DIFFERENT and varied "
+        f"{category} ideas someone could cook at home. Mix cuisines, flavor profiles, "
+        "and difficulty. Avoid near-duplicates. Include a couple of quick options and a "
+        "couple of more ambitious ones."
+        f"{coach_hint} "
+        "For each recipe return this JSON schema: "
+        "title, emoji, difficulty ('easy'|'medium'|'hard'), time_minutes (int), "
+        "description (one short appetizing sentence), "
+        "ingredients_used (the full ingredient list, lowercase names only), "
+        "missing_ingredients (empty array), "
+        "ingredients_detailed (REQUIRED — array of objects like "
+        '{"name": "rolled oats", "quantity": "1/2 cup (50g)"} covering every ingredient '
+        "with realistic measured amounts), "
+        "instructions (3-8 concise numbered steps that reference the quantities), "
+        "servings (int, default 2), "
+        'yield_text (REQUIRED short human-readable output like "Serves 2", '
+        '"Makes 12 pancakes", "1 bowl"), '
+        "nutrition object (calories, protein_g, fat_g, carbs_g per serving as integers, realistic), and "
+        "image_query (2-4 lowercase comma-separated keywords for a food photo). "
+        'Return ONLY JSON: {"recipes": [ {...}, {...} ]}'
+    )
+
+    user_msg = UserMessage(
+        text=f"Give me {n} varied {category} ideas I could make today."
+    )
+
+    recipes: List[Recipe] = []
+    try:
+        raw = await _run_chat(system, user_msg)
+        data = _extract_json(raw)
+        raw_recipes = data.get("recipes", []) if isinstance(data, dict) else []
+        for r in raw_recipes:
+            built = _build_recipe(r)
+            if built is not None:
+                recipes.append(built)
+    except Exception as e:
+        logging.exception("inspire failed")
+        raise HTTPException(status_code=500, detail=f"Inspiration failed: {e}")
+
+    if not recipes:
+        raise HTTPException(status_code=500, detail="No recipes returned")
+
+    suggestion_id = str(uuid.uuid4())
+    await db.suggestions.insert_one(
+        {
+            "id": suggestion_id,
+            "category": category,
             "recipes": [r.model_dump() for r in recipes],
             "created_at": datetime.now(timezone.utc).isoformat(),
         }

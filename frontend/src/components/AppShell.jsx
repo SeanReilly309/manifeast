@@ -1,10 +1,11 @@
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
-import { Home, Camera, ShoppingBasket, Heart, Utensils, Calculator } from "lucide-react";
+import { Home, Camera, ShoppingBasket, Heart, Utensils, Calculator, Sparkles } from "lucide-react";
 import { useApp } from "../context/AppContext";
 
 const navItems = [
   { to: "/", label: "Home", icon: Home, testId: "nav-home" },
   { to: "/scan", label: "Scan", icon: Camera, testId: "nav-scan" },
+  { to: "/inspire", label: "Inspire", icon: Sparkles, testId: "nav-inspire" },
   { to: "/analyze", label: "Analyze", icon: Utensils, testId: "nav-analyze" },
   { to: "/coach", label: "Coach", icon: Calculator, testId: "nav-coach" },
   { to: "/favorites", label: "Saved", icon: Heart, testId: "nav-favorites" },
@@ -64,19 +65,6 @@ export default function AppShell() {
               Ask
             </NavLink>
             <NavLink
-              to="/coach"
-              data-testid="nav-coach-desktop"
-              className={({ isActive }) =>
-                `px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                  isActive
-                    ? "bg-brand-primary text-white"
-                    : "text-brand-text-soft hover:text-brand-text hover:bg-brand-line/60"
-                }`
-              }
-            >
-              Coach
-            </NavLink>
-            <NavLink
               to="/about"
               data-testid="nav-about-desktop"
               className={({ isActive }) =>
@@ -102,7 +90,7 @@ export default function AppShell() {
         data-testid="bottom-nav"
         className="md:hidden fixed bottom-0 inset-x-0 z-40 backdrop-blur-xl bg-[#FAFAF7]/85 border-t border-brand-line"
       >
-        <div className="grid grid-cols-6">
+        <div className="grid grid-cols-7">
           {navItems.map((n) => {
             const Icon = n.icon;
             const isShop = n.to === "/shopping";
@@ -113,7 +101,7 @@ export default function AppShell() {
                 end={n.to === "/"}
                 data-testid={n.testId}
                 className={({ isActive }) =>
-                  `flex flex-col items-center justify-center gap-1 py-3 px-1 text-[10px] ${
+                  `flex flex-col items-center justify-center gap-1 py-3 px-0.5 text-[10px] ${
                     isActive ? "text-brand-primary" : "text-brand-text-soft"
                   }`
                 }

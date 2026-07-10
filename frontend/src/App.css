@@ -1,2 +1,5 @@
 /* App-wide overrides if needed */
 .App { min-height: 100vh; }
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
