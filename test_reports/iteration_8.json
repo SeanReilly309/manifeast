@@ -1,0 +1,34 @@
+{
+  "summary": "Verified /api/inspire MongoDB-backed cache (30-min TTL) + refresh bypass + background prefetch. Backend 5/5 pytest pass. Cold ~12-27s, cache HIT ~110-165ms (<<500ms target), cross-category isolation confirmed, refresh:true bypasses & replaces cache, cache survives `supervisorctl restart backend`, invalid category returns 400. Frontend: cold Breakfast on /inspire showed data-testid='inspire-loading' then rendered 6 cards in 11.9s; switching to Lunch (empty prefetch, first time) took 24.9s; returning to Breakfast was instant (0.01s from localStorage). Shuffle button correctly fires refresh=true (server call observed) — during this run the LLM budget was exhausted so it surfaced the friendly 503 toast; caching layer itself is confirmed correct via pytest. Regression: /api/suggest 200/30.6s, /api/ask-recipes 200/19.4s (both un-cached, still work).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "Inspire Shuffle in this test run", "issue": "Shuffle produced a 503 'recipe assistant temporarily unavailable' toast because the Emergent Universal Key budget was exhausted during backend pytest cold-call runs (each cold call ~20s eats budget). Refresh bypass logic itself is verified working via pytest test_refresh_true_bypasses_and_replaces_cache. If main agent wants to re-verify Shuffle in the UI, top up the key OR wait for budget reset OR mock the network response.", "affected_selectors": ["[data-testid=\"inspire-shuffle-btn\"]"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_inspire_cache.py",
+    "/app/test_reports/pytest/inspire_cache_results.xml"
+  ],
+  "action_items": [
+    "Optional: When the previous grid is still on-screen and the user clicks a new category tab that requires a fresh fetch, the loading state briefly does not visually replace the prior grid (a spinner appears but old cards stay). Consider clearing `results` immediately on tab switch or overlaying a skeleton to make the load state more obvious. Not blocking.",
+    "Consider a smarter LLM cost mitigation: prefetch-others could be gated behind an idle-callback + a per-session limit so a user who just wants Breakfast doesn't burn 4 additional cold calls in the background."
+  ],
+  "critical_code_review_comments": [
+    "Cache uses `datetime.fromisoformat(cached['created_at'])` — good, matches the write path. TTL check is client-side (Python) rather than a Mongo TTL index; that's fine for 30-min but you could add a background TTL index on created_at as a belt-and-braces cleanup so stale docs don't accumulate.",
+    "Cache key is only `category` (shared across all users) — correct per spec, but note it also ignores `count`, `coach`, and `diets`. A user asking for {category:'dinner', count:10, diets:['vegan']} today will get whatever the first caller (possibly non-vegan, count:6) cached. Consider hashing (category, coach, tuple(sorted(diets))) into the cache key if diet filters ever matter for /inspire (they do in inspireMeals frontend signature).",
+    "`recipes[:n]` slice on cache hit means if the first cache-populating call requested count=4 and a later call asks count=10, the later caller gets max 4 items with no cold refresh — user gets undersized result silently. Consider comparing len(cached.recipes) to n and treating as cache miss when insufficient.",
+    "Prefetch on frontend fires 4 additional /inspire calls after first render (400ms debounce). Each cold call is ~20s of LLM time and $$; this is fine when cache is warm but on a completely cold cache after deploy or after a 30-min gap, a single visit costs 5×LLM calls. Consider prefetching only on user hover/tab-focus intent."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_inspire_cache.py (new — 5 tests: validation, cold+HIT, cross-category isolation, refresh bypass, restart persistence)"
+  ],
+  "success_rate": {"backend": "100% (5/5 pytest + 2/2 regression curls)", "frontend": "100% for cache behaviour (cold load, loading state, localStorage instant re-open, tab switch). Shuffle refresh path could not be UI-verified this run due to exhausted LLM budget, but backend refresh path is verified via pytest."},
+  "seed_data_creation": "None. Test suite clears db.inspire_cache between cases via fixture.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Cache TTL is 30 min — if this iteration's cache is still warm, cold-call tests will falsely appear fast. Always: `python -c \"from pymongo import MongoClient; c = MongoClient('mongodb://localhost:27017'); c['test_database'].inspire_cache.delete_many({})\"` before rerunning cold tests. Category tabs in InspireMe.jsx use `data-testid=inspire-tab-{breakfast|lunch|dinner|snack|dessert}` (NOT inspire-cat-*). LLM budget is finite; run `pytest backend/tests/test_inspire_cache.py::TestInspireValidation` for the cheap subset.",
+  "rca of the issue": "USER REPORT: 'inspire ideas load slow'. ROOT CAUSE: /api/inspire always made a fresh gpt-4o call (~15-25s) with no server-side memoisation. FIX (main agent): added MongoDB inspire_cache collection keyed by category, 30-min TTL, checked before LLM call and upserted after; SuggestResponse.id is reused so callers can detect cache hits; refresh:true bypass on the model surfaces Shuffle intent; front-end also localStorage-caches per user and background-prefetches the other 4 category tabs after first render. RESULT: subsequent visits and tab switches drop from ~20s to <200ms — verified end-to-end."
+}

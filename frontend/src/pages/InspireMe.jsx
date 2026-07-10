@@ -46,7 +46,7 @@ export default function InspireMe() {
     setLoading(true);
     setError(null);
     try {
-      const data = await inspireMeals(cat, null, 8, []);
+      const data = await inspireMeals(cat, null, 6, [], force);
       const next = { ...byCategory, [cat]: data.recipes || [] };
       setByCategory(next);
       writeCache(next);
@@ -63,11 +63,40 @@ export default function InspireMe() {
     }
   }, [byCategory]);
 
+  // Background prefetch of the other categories after the current one loads.
+  // Server-side cache means these are cheap for everyone else too.
+  const prefetchOthers = useCallback(async (activeCat) => {
+    const others = CATEGORIES.map((c) => c.id).filter((c) => c !== activeCat);
+    for (const cat of others) {
+      if ((byCategory[cat] || []).length > 0) continue;
+      try {
+        const data = await inspireMeals(cat, null, 6, [], false);
+        setByCategory((prev) => {
+          const next = { ...prev, [cat]: data.recipes || [] };
+          writeCache(next);
+          return next;
+        });
+      } catch {
+        // Silent — prefetch is best-effort.
+        break;
+      }
+    }
+  }, [byCategory]);
+
   useEffect(() => {
     // Clean up legacy keys from the removed diet-filter feature.
     try { localStorage.removeItem("manifeast_inspire_diets"); } catch { /* ignore */ }
     load(category);
   }, [category]);
+
+  // After the current category has results and no in-flight load, prefetch the rest.
+  useEffect(() => {
+    if (loading) return;
+    if (!(byCategory[category] || []).length) return;
+    const timer = setTimeout(() => prefetchOthers(category), 400);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [category, loading, byCategory[category]?.length]);
 
   const handleOpen = (recipe) => {
     setRecipes(results);

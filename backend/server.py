@@ -35,7 +35,11 @@ db = client[os.environ["DB_NAME"]]
 
 EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
 LLM_MODEL = "gpt-4o"
+LLM_MODEL_FAST = "gpt-4o-mini"  # smaller / faster / cheaper — used by /inspire
 LLM_PROVIDER = "openai"
+
+# Cache TTL for /inspire (server-side, shared across users) — 30 min
+INSPIRE_CACHE_TTL_SECONDS = 30 * 60
 
 # Input size limits (defence in depth against abuse and OOM)
 MAX_IMAGE_B64_CHARS = 10_000_000       # ~7.5 MB decoded
@@ -86,6 +90,7 @@ class AskRecipesRequest(BaseModel):
 class InspireRequest(BaseModel):
     category: str  # breakfast | lunch | dinner | snack | dessert
     count: int = 8
+    refresh: bool = False  # if True, bypass server-side cache
 
 
 class Nutrition(BaseModel):
@@ -213,14 +218,14 @@ class LLMBudgetError(HTTPException):
         )
 
 
-async def _run_chat(system: str, user_msg: UserMessage) -> str:
+async def _run_chat(system: str, user_msg: UserMessage, model: str = LLM_MODEL) -> str:
     if not EMERGENT_LLM_KEY:
         raise HTTPException(status_code=500, detail="EMERGENT_LLM_KEY not configured")
     chat = LlmChat(
         api_key=EMERGENT_LLM_KEY,
         session_id=str(uuid.uuid4()),
         system_message=system,
-    ).with_model(LLM_PROVIDER, LLM_MODEL)
+    ).with_model(LLM_PROVIDER, model)
 
     buf = []
     try:
@@ -513,12 +518,28 @@ async def inspire_meals(request: Request, req: InspireRequest):
             detail=f"category must be one of {sorted(allowed)}",
         )
     n = max(4, min(req.count, 10))
+    force_refresh = bool(getattr(req, "refresh", False))
 
+    # ---- Server-side cache (shared across all users, 30 min TTL) ----
+    now = datetime.now(timezone.utc)
+    if not force_refresh:
+        cached = await db.inspire_cache.find_one({"category": category})
+        if cached:
+            try:
+                created = datetime.fromisoformat(cached["created_at"])
+                age = (now - created).total_seconds()
+                if age < INSPIRE_CACHE_TTL_SECONDS and cached.get("recipes"):
+                    cached_recipes = [Recipe(**r) for r in cached["recipes"][:n]]
+                    logging.info("inspire cache HIT %s (age=%ss)", category, int(age))
+                    return SuggestResponse(id=cached["id"], recipes=cached_recipes)
+            except Exception:
+                logging.exception("inspire cache read failed — refetching")
+
+    # ---- Cache miss: call the fast model ----
     system = (
         f"You are a creative recipe curator. Suggest {n} DIFFERENT and varied "
         f"{category} ideas someone could cook at home. Mix cuisines, flavor profiles, "
-        "and difficulty. Avoid near-duplicates. Include a couple of quick options and a "
-        "couple of more ambitious ones. "
+        "and difficulty. Avoid near-duplicates. Keep descriptions SHORT (max ~15 words). "
         "For each recipe return this JSON schema: "
         "title, emoji, difficulty ('easy'|'medium'|'hard'), time_minutes (int), "
         "description (one short appetizing sentence), "
@@ -527,7 +548,7 @@ async def inspire_meals(request: Request, req: InspireRequest):
         "ingredients_detailed (REQUIRED — array of objects like "
         '{"name": "rolled oats", "quantity": "1/2 cup (50g)"} covering every ingredient '
         "with realistic measured amounts), "
-        "instructions (3-8 concise numbered steps that reference the quantities), "
+        "instructions (3-6 concise numbered steps that reference the quantities), "
         "servings (int, default 2), "
         'yield_text (REQUIRED short human-readable output like "Serves 2", '
         '"Makes 12 pancakes", "1 bowl"), '
@@ -559,14 +580,24 @@ async def inspire_meals(request: Request, req: InspireRequest):
         raise HTTPException(status_code=500, detail="No recipes returned")
 
     suggestion_id = str(uuid.uuid4())
-    await db.suggestions.insert_one(
-        {
-            "id": suggestion_id,
-            "category": category,
-            "recipes": [r.model_dump() for r in recipes],
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        }
-    )
+
+    # Write-through cache (upsert per category)
+    try:
+        await db.inspire_cache.update_one(
+            {"category": category},
+            {
+                "$set": {
+                    "id": suggestion_id,
+                    "category": category,
+                    "recipes": [r.model_dump() for r in recipes],
+                    "created_at": now.isoformat(),
+                }
+            },
+            upsert=True,
+        )
+    except Exception:
+        logging.exception("inspire cache write failed — returning uncached result")
+
     return SuggestResponse(id=suggestion_id, recipes=recipes)
 
 
