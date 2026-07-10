@@ -218,7 +218,12 @@ class LLMBudgetError(HTTPException):
         )
 
 
-async def _run_chat(system: str, user_msg: UserMessage, model: str = LLM_MODEL) -> str:
+async def _run_chat(
+    system: str,
+    user_msg: UserMessage,
+    model: str = LLM_MODEL,
+    json_mode: bool = False,
+) -> str:
     if not EMERGENT_LLM_KEY:
         raise HTTPException(status_code=500, detail="EMERGENT_LLM_KEY not configured")
     chat = LlmChat(
@@ -226,6 +231,8 @@ async def _run_chat(system: str, user_msg: UserMessage, model: str = LLM_MODEL) 
         session_id=str(uuid.uuid4()),
         system_message=system,
     ).with_model(LLM_PROVIDER, model)
+    if json_mode:
+        chat = chat.with_params(response_format={"type": "json_object"})
 
     buf = []
     try:
@@ -563,7 +570,7 @@ async def inspire_meals(request: Request, req: InspireRequest):
 
     recipes: List[Recipe] = []
     try:
-        raw = await _run_chat(system, user_msg)
+        raw = await _run_chat(system, user_msg, model=LLM_MODEL_FAST, json_mode=True)
         data = _extract_json(raw)
         raw_recipes = data.get("recipes", []) if isinstance(data, dict) else []
         for r in raw_recipes:

@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2, RefreshCw, Sun, Sandwich, UtensilsCrossed, Cookie, Apple } from "lucide-react";
+import { Loader2, RefreshCw, Plus, Sun, Sandwich, UtensilsCrossed, Cookie, Apple } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { toast } from "sonner";
 import { RecipeCard } from "../components/RecipeCard";
+import { RecipeCardSkeleton } from "../components/RecipeCardSkeleton";
 import { inspireMeals } from "../lib/api";
 import { useApp } from "../context/AppContext";
 
@@ -35,6 +36,7 @@ export default function InspireMe() {
   const { setRecipes } = useApp();
   const [category, setCategory] = useState("breakfast");
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [byCategory, setByCategory] = useState(() => readCache());
   const navigate = useNavigate();
 
@@ -62,6 +64,37 @@ export default function InspireMe() {
       setLoading(false);
     }
   }, [byCategory]);
+
+  // Load 4 MORE ideas and append to the current list. Bypasses cache so we
+  // always get fresh ideas (deduped against what's already shown).
+  const loadMore = useCallback(async () => {
+    if (loadingMore || loading) return;
+    setLoadingMore(true);
+    try {
+      const data = await inspireMeals(category, null, 4, [], true);
+      const fresh = data.recipes || [];
+      const existingIds = new Set((byCategory[category] || []).map((r) => r.id));
+      const existingTitles = new Set(
+        (byCategory[category] || []).map((r) => (r.title || "").toLowerCase())
+      );
+      const deduped = fresh.filter(
+        (r) => !existingIds.has(r.id) && !existingTitles.has((r.title || "").toLowerCase())
+      );
+      setByCategory((prev) => {
+        const combined = [...(prev[category] || []), ...deduped];
+        const next = { ...prev, [category]: combined };
+        writeCache(next);
+        return next;
+      });
+      if (deduped.length === 0) {
+        toast.info("No new ideas this time — try Shuffle instead.");
+      }
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e?.message || "Couldn't load more");
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [category, byCategory, loading, loadingMore]);
 
   // Background prefetch of the other categories after the current one loads.
   // Server-side cache means these are cheap for everyone else too.
@@ -171,11 +204,13 @@ export default function InspireMe() {
       </div>
 
       {loading && results.length === 0 && (
-        <div className="text-center py-16 space-y-3" data-testid="inspire-loading">
-          <Loader2 className="w-8 h-8 mx-auto animate-spin text-brand-primary" strokeWidth={1.5} />
-          <p className="font-serif-display text-2xl italic text-brand-text-soft">
-            Dreaming up {category} ideas…
-          </p>
+        <div
+          data-testid="inspire-loading"
+          className="grid md:grid-cols-2 lg:grid-cols-3 gap-6"
+        >
+          {Array.from({ length: 4 }).map((_, i) => (
+            <RecipeCardSkeleton key={i} />
+          ))}
         </div>
       )}
 
@@ -202,14 +237,37 @@ export default function InspireMe() {
       )}
 
       {results.length > 0 && (
-        <div
-          data-testid="inspire-grid"
-          className={`grid md:grid-cols-2 lg:grid-cols-3 gap-6 ${loading ? "opacity-50 pointer-events-none" : ""}`}
-        >
-          {results.map((r, i) => (
-            <RecipeCard key={r.id || r.title || i} recipe={r} index={i} onOpen={handleOpen} />
-          ))}
-        </div>
+        <>
+          <div
+            data-testid="inspire-grid"
+            className={`grid md:grid-cols-2 lg:grid-cols-3 gap-6 ${loading ? "opacity-50 pointer-events-none" : ""}`}
+          >
+            {results.map((r, i) => (
+              <RecipeCard key={r.id || r.title || i} recipe={r} index={i} onOpen={handleOpen} />
+            ))}
+            {loadingMore &&
+              Array.from({ length: 4 }).map((_, i) => (
+                <RecipeCardSkeleton key={`more-${i}`} />
+              ))}
+          </div>
+
+          <div className="flex justify-center pt-2">
+            <Button
+              data-testid="inspire-load-more-btn"
+              variant="outline"
+              disabled={loading || loadingMore}
+              onClick={loadMore}
+              className="rounded-full h-12 px-6 text-sm font-semibold border-brand-primary/30 text-brand-primary bg-white hover:bg-brand-primary/5 disabled:opacity-50"
+            >
+              {loadingMore ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" strokeWidth={1.7} />
+              ) : (
+                <Plus className="w-4 h-4 mr-2" strokeWidth={2.2} />
+              )}
+              {loadingMore ? "Fetching more ideas…" : "Load 4 more ideas"}
+            </Button>
+          </div>
+        </>
       )}
     </div>
   );
