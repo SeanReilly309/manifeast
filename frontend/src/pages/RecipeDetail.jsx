@@ -33,12 +33,14 @@ function buildShareText(recipe) {
 }
 
 export default function RecipeDetail() {
-  const { idx } = useParams();
+  const { id } = useParams();
   const navigate = useNavigate();
-  const { recipes, addShoppingItems, isFavorite, toggleFavorite } = useApp();
+  const { recipes, favorites, addShoppingItems, isFavorite, toggleFavorite } = useApp();
   const [scale, setScale] = useState(1);
-  const i = Number(idx);
-  const recipe = recipes?.[i];
+  const recipe =
+    recipes?.find((r) => r.id === id) ||
+    favorites?.find((r) => r.id === id) ||
+    null;
 
   if (!recipe) {
     return (
@@ -100,9 +102,9 @@ export default function RecipeDetail() {
       <div className="grid md:grid-cols-2 gap-8 md:gap-12 items-start">
         <div className="relative rounded-3xl overflow-hidden border border-brand-line">
           <img
-            src={recipeImage(recipe, i, { width: 940, height: 900 })}
+            src={recipeImage(recipe, 0, { width: 940, height: 900 })}
             alt={recipe.title}
-            onError={(e) => { e.currentTarget.src = fallbackFoodImage(i); }}
+            onError={(e) => { e.currentTarget.src = fallbackFoodImage(0); }}
             className="w-full h-[360px] md:h-[480px] object-cover"
           />
           <button
@@ -289,7 +291,7 @@ export default function RecipeDetail() {
           <div className="pt-2 flex flex-wrap gap-3">
             <Button
               data-testid="start-cook-mode-btn"
-              onClick={() => navigate(`/recipe/${i}/cook`)}
+              onClick={() => navigate(`/recipe/${recipe.id}/cook`)}
               className="rounded-full px-7 py-6 text-base font-semibold bg-brand-primary hover:bg-brand-primary-dark text-white shadow-[0_8px_24px_rgba(224,122,95,0.32)]"
             >
               <Play className="w-5 h-5 mr-2" strokeWidth={1.7} fill="currentColor" /> Start cooking

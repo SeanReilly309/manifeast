@@ -5,16 +5,19 @@ import { Button } from "../components/ui/button";
 import { useApp } from "../context/AppContext";
 
 export default function CookMode() {
-  const { idx } = useParams();
+  const { id } = useParams();
   const navigate = useNavigate();
-  const { recipes } = useApp();
-  const recipe = recipes?.[Number(idx)];
+  const { recipes, favorites } = useApp();
+  const recipe =
+    recipes?.find((r) => r.id === id) ||
+    favorites?.find((r) => r.id === id) ||
+    null;
   const steps = recipe?.instructions || [];
   const [step, setStep] = useState(0);
 
   const next = useCallback(() => setStep((s) => Math.min(s + 1, steps.length - 1)), [steps.length]);
   const prev = useCallback(() => setStep((s) => Math.max(s - 1, 0)), []);
-  const exit = useCallback(() => navigate(`/recipe/${idx}`), [navigate, idx]);
+  const exit = useCallback(() => navigate(`/recipe/${id}`), [navigate, id]);
 
   // Keyboard navigation
   useEffect(() => {

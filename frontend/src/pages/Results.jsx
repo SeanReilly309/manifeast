@@ -30,7 +30,7 @@ export default function Results() {
     );
   }
 
-  const handleOpen = (idx) => navigate(`/recipe/${idx}`);
+  const handleOpen = (recipe) => navigate(`/recipe/${recipe.id}`);
 
   return (
     <div className="space-y-10" data-testid="results-page">

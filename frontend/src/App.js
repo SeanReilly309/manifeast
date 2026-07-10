@@ -35,7 +35,7 @@ function App() {
               <Route path="/" element={<Home />} />
               <Route path="/scan" element={<Scan />} />
               <Route path="/results" element={<Results />} />
-              <Route path="/recipe/:idx" element={<RecipeDetail />} />
+              <Route path="/recipe/:id" element={<RecipeDetail />} />
               <Route path="/favorites" element={<Favorites />} />
               <Route path="/shopping" element={<ShoppingList />} />
               <Route path="/about" element={<About />} />
@@ -45,7 +45,7 @@ function App() {
               <Route path="/ask" element={<Ask />} />
               <Route path="/inspire" element={<InspireMe />} />
             </Route>
-            <Route path="/recipe/:idx/cook" element={<CookMode />} />
+            <Route path="/recipe/:id/cook" element={<CookMode />} />
           </Routes>
         </BrowserRouter>
         <GoalCelebration />

@@ -39,17 +39,25 @@ export default function InspireMe() {
   const navigate = useNavigate();
 
   const results = byCategory[category] || [];
+  const [error, setError] = useState(null);
 
   const load = useCallback(async (cat, { force = false } = {}) => {
     if (!force && (byCategory[cat] || []).length > 0) return;
     setLoading(true);
+    setError(null);
     try {
       const data = await inspireMeals(cat, null, 8, []);
       const next = { ...byCategory, [cat]: data.recipes || [] };
       setByCategory(next);
       writeCache(next);
     } catch (e) {
-      toast.error(e?.response?.data?.detail || e?.message || "Couldn't fetch ideas");
+      const status = e?.response?.status;
+      const msg =
+        e?.response?.data?.detail ||
+        e?.message ||
+        "Couldn't fetch ideas";
+      setError({ status, msg });
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -61,9 +69,9 @@ export default function InspireMe() {
     load(category);
   }, [category]);
 
-  const handleOpen = (i) => {
+  const handleOpen = (recipe) => {
     setRecipes(results);
-    navigate(`/recipe/${i}`);
+    navigate(`/recipe/${recipe.id}`);
   };
 
   const shuffle = () => load(category, { force: true });
@@ -139,6 +147,28 @@ export default function InspireMe() {
           <p className="font-serif-display text-2xl italic text-brand-text-soft">
             Dreaming up {category} ideas…
           </p>
+        </div>
+      )}
+
+      {!loading && results.length === 0 && error && (
+        <div
+          data-testid="inspire-error"
+          className="rounded-3xl bg-white border border-brand-line px-6 py-14 text-center space-y-4"
+        >
+          <p className="font-serif-display text-3xl italic text-brand-text">
+            {error.status === 503 ? "The kitchen is closed for a sec." : "Couldn't fetch ideas."}
+          </p>
+          <p className="text-brand-text-soft max-w-md mx-auto text-sm">
+            {error.msg}
+          </p>
+          <Button
+            data-testid="inspire-retry-btn"
+            onClick={shuffle}
+            className="rounded-full bg-brand-primary hover:bg-brand-primary-dark text-white px-6"
+          >
+            <RefreshCw className="w-4 h-4 mr-2" strokeWidth={1.7} />
+            Try again
+          </Button>
         </div>
       )}
 

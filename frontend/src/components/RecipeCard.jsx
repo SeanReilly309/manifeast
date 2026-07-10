@@ -27,7 +27,7 @@ function RecipeCardBase({ recipe, index, onOpen }) {
   return (
     <article
       data-testid={`recipe-card-${index}`}
-      onClick={() => onOpen(index)}
+      onClick={() => onOpen(recipe, index)}
       className="cursor-pointer group bg-white border border-brand-line rounded-3xl overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
     >
       <div className="relative aspect-[5/4] overflow-hidden">

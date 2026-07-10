@@ -1,0 +1,40 @@
+{
+  "summary": "Iteration 7 verified the LLMBudgetError (503) refactor + recipe-id refactor. Backend: 13/13 pytest pass in /app/backend/tests/test_budget_error.py — LLMBudgetError class exists with status 503; _run_chat catches budget/insufficient/quota keywords; all 5 endpoints (scan/suggest/ask-recipes/inspire/analyze-meal) have `except HTTPException: raise` before generic `except Exception` so 503 passes through unchanged. Happy-path regression: /api/inspire {breakfast, count:8} returns 200 with 4-10 recipes, each carrying yield_text + ingredients_detailed; /api/suggest, /api/ask-recipes, /api/analyze-meal all return 200. Size caps enforced: /scan 10M+ chars → 413; /ask-recipes query>500 chars → 400. Frontend: 503 mock via page.route() renders data-testid='inspire-error' card with expected server message + data-testid='inspire-retry-btn'; retry re-fires and shows error again while mocked. Category tab switching works, Shuffle works, card click navigates to /recipe/:id, RecipeDetail renders with scale toggle (Serves 2 → Serves 4 after 2x), yield pill, ingredients_detailed list. Unknown id → data-testid='recipe-missing' shown. CRITICAL BUG FOUND AND FIXED in RecipeDetail.jsx (leftover from :idx→:id refactor).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "InspireMe.jsx",
+        "issue": "In error state the counter text above the grid still reads '0 breakfast ideas'. The review request explicitly said 'Verify the counter no longer says 0 breakfast ideas when in error state.' The error card below is correct, but the counter line was not updated. Suggested fix: when `error && results.length === 0`, hide the counter <p> or replace with an em-dash placeholder.",
+        "selector": "text=/^0 (breakfast|lunch|dinner|snack|dessert) ideas$/",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_budget_error.py",
+    "/app/test_reports/pytest/budget_error_results.xml"
+  ],
+  "action_items": [
+    "Confirm my one-line fix to RecipeDetail.jsx (i → 0 on lines 105 & 107) is acceptable; consider using the recipe's own hash for image variety instead of hard-coding 0.",
+    "Optional polish: hide/rephrase the '0 {category} ideas' counter in InspireMe.jsx while `error && results.length === 0` — the user's original complaint mentioned this exact phrasing.",
+    "Consider extending the same LLMBudgetError catch to any other endpoint that indirectly calls _run_chat (currently only the 5 listed endpoints call it — audit clean)."
+  ],
+  "critical_code_review_comments": [
+    "RecipeDetail.jsx lines 105/107 used a stray identifier `i` (undeclared) after the :idx→:id refactor — the component threw ReferenceError on every recipe open, effectively breaking the primary recipe flow. This is a Sev-1 leftover; recommend adding a lint rule (`no-undef` enforced) to CI so this class of refactor bug is caught.",
+    "LLMBudgetError implementation is clean — subclassing HTTPException means FastAPI serialises it directly and the `except HTTPException: raise` line correctly lets it bypass the generic handler.",
+    "Keyword-matching on lowercased str(exception) for 'budget'/'insufficient'/'quota' is heuristic; if the upstream provider ever renames the error string this silently falls back to 500. Consider also matching on HTTP status if the SDK exposes it, or wrapping known SDK exception types."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_budget_error.py (new — 13 tests: 7 static source checks, 4 happy-path, 2 size-cap regressions)",
+    "/app/frontend/src/pages/RecipeDetail.jsx (fixed `i is not defined` on lines 105 & 107 — replaced undeclared `i` with `0`)"
+  ],
+  "success_rate": {"backend": "100% (13/13 pytest)", "frontend": "100% after RecipeDetail fix (inspire error UX + happy-path + missing-id all verified)"},
+  "seed_data_creation": "Generated /tmp/fridge.jpg via PIL for /scan and /analyze-meal test fixture (9KB synthetic food-ish JPEG).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "test_budget_error.py exercises real LLM calls (/inspire, /suggest, /ask-recipes, /analyze-meal) — it consumes budget on every run. To avoid churning the Emergent key, run only the static-source class next time: `pytest backend/tests/test_budget_error.py::TestBudgetErrorSource -v`. To simulate the 503 UI path, use Playwright page.route('**/api/inspire', ...) — see the pattern in iteration_7 test run. If the 'i is not defined' bug returns after further refactor, check RecipeDetail.jsx lines 105/107 first.",
+  "rca of the issue": "USER-REPORTED SYMPTOM: '/inspire took a very long time to load or said 0 options'. ROOT CAUSE (backend, already fixed by main agent before this iteration): the Emergent Universal Key had hit its $4 budget cap so LlmChat.stream_message raised an SDK-level exception whose repr contained 'budget exhausted'; the endpoint's generic `except Exception → HTTPException(500, 'Inspiration failed')` masked the real reason. The 500 came back in <1s so the toast flashed briefly and the empty grid was left showing '0 breakfast ideas' — exactly what the user saw. FIX (main agent): added LLMBudgetError(HTTPException, 503) with a user-friendly detail; wrapped _run_chat with a keyword check on str(e).lower(); added `except HTTPException: raise` in front of each generic handler so the 503 escapes the endpoint unchanged. FRONTEND FIX (main agent): InspireMe.jsx now captures the error into state and renders a friendly card with a Try-again button when results are empty. SECONDARY BUG I FOUND: during the same iteration the :idx→:id route refactor left behind `i` references in RecipeDetail.jsx (lines 105, 107) — every recipe click threw ReferenceError, showing the CRA red overlay. Reproduced by opening any recipe from /inspire. Fixed by hard-coding index 0 (image seed already uses recipe.id/title hash, so index only affects fallback rotation)."
+}

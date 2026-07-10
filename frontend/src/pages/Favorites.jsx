@@ -5,7 +5,7 @@ import { RecipeCard } from "../components/RecipeCard";
 import { useApp } from "../context/AppContext";
 
 export default function Favorites() {
-  const { favorites, recipes, setRecipes } = useApp();
+  const { favorites } = useApp();
   const navigate = useNavigate();
 
   if (!favorites || favorites.length === 0) {
@@ -30,19 +30,7 @@ export default function Favorites() {
     );
   }
 
-  const handleOpen = (idx) => {
-    // Open from favorites — load this single favorite into the active recipes list
-    // so RecipeDetail can find it by index.
-    const recipe = favorites[idx];
-    const existingIdx = recipes.findIndex((r) => (r.id || r.title) === (recipe.id || recipe.title));
-    if (existingIdx >= 0) {
-      navigate(`/recipe/${existingIdx}`);
-    } else {
-      const merged = [recipe, ...recipes];
-      setRecipes(merged);
-      navigate(`/recipe/0`);
-    }
-  };
+  const handleOpen = (recipe) => navigate(`/recipe/${recipe.id}`);
 
   return (
     <div className="space-y-10" data-testid="favorites-page">

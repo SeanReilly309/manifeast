@@ -11,7 +11,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field
 
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -68,11 +68,6 @@ class AnalyzeMealRequest(BaseModel):
     mime_type: Optional[str] = "image/jpeg"
 
 
-class Ingredient(BaseModel):
-    name: str
-    confidence: Optional[float] = None
-
-
 class ScanResponse(BaseModel):
     id: str
     ingredients: List[str]
@@ -88,17 +83,9 @@ class AskRecipesRequest(BaseModel):
     max_recipes: int = 5
 
 
-class CoachHint(BaseModel):
-    target_kcal: Optional[int] = None
-    protein_g: Optional[int] = None
-    goal: Optional[str] = None  # 'lose' | 'maintain' | 'gain'
-
-
 class InspireRequest(BaseModel):
     category: str  # breakfast | lunch | dinner | snack | dessert
     count: int = 8
-    coach: Optional[CoachHint] = None
-    diets: List[str] = Field(default_factory=list)  # e.g. ['vegetarian','gluten_free','low_carb']
 
 
 class Nutrition(BaseModel):
@@ -213,6 +200,19 @@ def _extract_json(text: str):
     raise ValueError("Could not parse JSON from model response")
 
 
+class LLMBudgetError(HTTPException):
+    """Emergent LLM key budget has been exhausted."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=503,
+            detail=(
+                "Our recipe assistant is temporarily unavailable — please try again "
+                "in a bit. (If you own this app, top up your Universal Key balance.)"
+            ),
+        )
+
+
 async def _run_chat(system: str, user_msg: UserMessage) -> str:
     if not EMERGENT_LLM_KEY:
         raise HTTPException(status_code=500, detail="EMERGENT_LLM_KEY not configured")
@@ -223,11 +223,21 @@ async def _run_chat(system: str, user_msg: UserMessage) -> str:
     ).with_model(LLM_PROVIDER, LLM_MODEL)
 
     buf = []
-    async for ev in chat.stream_message(user_msg):
-        if isinstance(ev, TextDelta):
-            buf.append(ev.content)
-        elif isinstance(ev, StreamDone):
-            break
+    try:
+        async for ev in chat.stream_message(user_msg):
+            if isinstance(ev, TextDelta):
+                buf.append(ev.content)
+            elif isinstance(ev, StreamDone):
+                break
+    except Exception as e:
+        # Surface budget exhaustion as a distinct 503 so the client can show a
+        # helpful message instead of a generic "recipes failed". Any other
+        # failure re-raises for the endpoint-level handler.
+        msg = str(e).lower()
+        if "budget" in msg or "insufficient" in msg or "quota" in msg:
+            logging.warning("LLM budget exhausted")
+            raise LLMBudgetError()
+        raise
     return "".join(buf)
 
 
@@ -273,18 +283,14 @@ async def scan_fridge(request: Request, req: ScanRequest):
                 continue
             seen.add(name)
             cleaned.append(name)
+    except HTTPException:
+        raise
     except Exception:
         logging.exception("scan failed")
         raise HTTPException(status_code=500, detail="Vision analysis failed")
 
     scan_id = str(uuid.uuid4())
-    await db.scans.insert_one(
-        {
-            "id": scan_id,
-            "ingredients": cleaned,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        }
-    )
+    # Privacy: we intentionally do NOT persist the user's ingredient list.
     return ScanResponse(id=scan_id, ingredients=cleaned)
 
 
@@ -292,13 +298,37 @@ def _str_list(values) -> List[str]:
     return [str(x).lower() for x in values or [] if isinstance(x, str)]
 
 
+_INT_RE = re.compile(r"-?\d+")
+
+
+def _coerce_int(value, default: int = 0) -> int:
+    """Best-effort int coercion. Accepts ints, floats, decimal strings, and
+    messy strings like '20 minutes', '2-4', '350 kcal'. Falls back to default
+    on failure so an oddly-typed LLM field never drops the whole recipe."""
+    if isinstance(value, bool):
+        return default
+    if isinstance(value, (int, float)):
+        try:
+            return int(value)
+        except (ValueError, OverflowError):
+            return default
+    if isinstance(value, str):
+        m = _INT_RE.search(value)
+        if m:
+            try:
+                return int(m.group(0))
+            except ValueError:
+                return default
+    return default
+
+
 def _build_nutrition(raw: dict) -> "Nutrition":
-    n = raw or {}
+    n = raw if isinstance(raw, dict) else {}
     return Nutrition(
-        calories=int(n.get("calories", 0) or 0),
-        protein_g=int(n.get("protein_g", 0) or 0),
-        fat_g=int(n.get("fat_g", 0) or 0),
-        carbs_g=int(n.get("carbs_g", 0) or 0),
+        calories=_coerce_int(n.get("calories"), 0),
+        protein_g=_coerce_int(n.get("protein_g"), 0),
+        fat_g=_coerce_int(n.get("fat_g"), 0),
+        carbs_g=_coerce_int(n.get("carbs_g"), 0),
     )
 
 
@@ -320,24 +350,30 @@ def _build_ingredients_detailed(raw) -> List["IngredientDetail"]:
 
 
 def _build_recipe(r: dict) -> Optional["Recipe"]:
+    if not isinstance(r, dict):
+        return None
     try:
+        title = str(r.get("title", "")).strip()
+        if not title:
+            return None
         return Recipe(
             id=str(uuid.uuid4()),
-            title=str(r.get("title", "Untitled")).strip(),
+            title=title,
             emoji=str(r.get("emoji", "🍽️")).strip() or "🍽️",
             difficulty=str(r.get("difficulty", "easy")).strip().lower(),
-            time_minutes=int(r.get("time_minutes", 15)),
+            time_minutes=max(1, _coerce_int(r.get("time_minutes"), 15)),
             description=str(r.get("description", "")).strip(),
             ingredients_used=_str_list(r.get("ingredients_used")),
             missing_ingredients=_str_list(r.get("missing_ingredients")),
             ingredients_detailed=_build_ingredients_detailed(r.get("ingredients_detailed")),
             instructions=[str(x) for x in r.get("instructions", []) if isinstance(x, str)],
-            servings=int(r.get("servings", 1) or 1),
+            servings=max(1, _coerce_int(r.get("servings"), 1)),
             yield_text=str(r.get("yield_text", "")).strip(),
             nutrition=_build_nutrition(r.get("nutrition")),
             image_query=str(r.get("image_query", "")).strip().lower(),
         )
     except Exception:
+        logging.exception("_build_recipe failed for payload=%s", r)
         return None
 
 
@@ -390,6 +426,8 @@ async def suggest_recipes(request: Request, req: SuggestRequest):
             built = _build_recipe(r)
             if built is not None:
                 recipes.append(built)
+    except HTTPException:
+        raise
     except Exception:
         logging.exception("suggest failed")
         raise HTTPException(status_code=500, detail="Recipe suggestion failed")
@@ -398,14 +436,7 @@ async def suggest_recipes(request: Request, req: SuggestRequest):
         raise HTTPException(status_code=500, detail="No recipes returned")
 
     suggestion_id = str(uuid.uuid4())
-    await db.suggestions.insert_one(
-        {
-            "id": suggestion_id,
-            "ingredients": cleaned_in,
-            "recipes": [r.model_dump() for r in recipes],
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        }
-    )
+    # Privacy: user ingredients / queries are not persisted.
     return SuggestResponse(id=suggestion_id, recipes=recipes)
 
 
@@ -450,6 +481,8 @@ async def ask_recipes(request: Request, req: AskRecipesRequest):
             built = _build_recipe(r)
             if built is not None:
                 recipes.append(built)
+    except HTTPException:
+        raise
     except Exception:
         logging.exception("ask-recipes failed")
         raise HTTPException(status_code=500, detail="Recipe search failed")
@@ -481,48 +514,11 @@ async def inspire_meals(request: Request, req: InspireRequest):
         )
     n = max(4, min(req.count, 10))
 
-    diet_map = {
-        "vegetarian": "vegetarian (no meat or fish)",
-        "vegan": "vegan (no animal products at all — no meat, dairy, eggs, honey)",
-        "gluten_free": "gluten-free (no wheat, barley, rye, regular pasta, bread, or soy sauce)",
-        "low_carb": "low-carb (under ~25g net carbs per serving; avoid pasta, rice, bread, sugar, potatoes)",
-        "dairy_free": "dairy-free (no milk, butter, cheese, yogurt, cream)",
-    }
-    diet_hint = ""
-    diet_labels = [diet_map[d] for d in (req.diets or []) if d in diet_map]
-    if diet_labels:
-        diet_hint = (
-            " ALL recipes MUST be " + " AND ".join(diet_labels) + ". "
-            "This is a hard constraint — do not include a single recipe that violates any of these."
-        )
-
-    coach_hint = ""
-    if req.coach:
-        parts = []
-        if req.coach.target_kcal:
-            parts.append(f"daily calorie target ~{req.coach.target_kcal} kcal")
-        if req.coach.protein_g:
-            parts.append(f"daily protein target ~{req.coach.protein_g}g")
-        if req.coach.goal:
-            goal_map = {
-                "lose": "trying to lose weight (lean, higher-protein, lower-calorie choices)",
-                "gain": "trying to gain muscle (calorie-dense, high-protein choices)",
-                "maintain": "maintaining weight (balanced macros)",
-            }
-            parts.append(goal_map.get(req.coach.goal, ""))
-        if parts:
-            coach_hint = (
-                " The user is " + "; ".join([p for p in parts if p]) + ". "
-                "Gently bias picks toward this goal but keep the list interesting and varied."
-            )
-
     system = (
         f"You are a creative recipe curator. Suggest {n} DIFFERENT and varied "
         f"{category} ideas someone could cook at home. Mix cuisines, flavor profiles, "
         "and difficulty. Avoid near-duplicates. Include a couple of quick options and a "
-        "couple of more ambitious ones."
-        f"{diet_hint}"
-        f"{coach_hint} "
+        "couple of more ambitious ones. "
         "For each recipe return this JSON schema: "
         "title, emoji, difficulty ('easy'|'medium'|'hard'), time_minutes (int), "
         "description (one short appetizing sentence), "
@@ -553,6 +549,8 @@ async def inspire_meals(request: Request, req: InspireRequest):
             built = _build_recipe(r)
             if built is not None:
                 recipes.append(built)
+    except HTTPException:
+        raise
     except Exception:
         logging.exception("inspire failed")
         raise HTTPException(status_code=500, detail="Inspiration failed")
@@ -616,6 +614,8 @@ async def analyze_meal(request: Request, req: AnalyzeMealRequest):
             notes=str(data.get("notes", "")).strip(),
             is_food=bool(data.get("is_food", True)),
         )
+    except HTTPException:
+        raise
     except Exception:
         logging.exception("analyze-meal failed")
         raise HTTPException(status_code=500, detail="Meal analysis failed")

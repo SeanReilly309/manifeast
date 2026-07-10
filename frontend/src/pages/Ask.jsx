@@ -53,7 +53,7 @@ export default function Ask() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.search]);
 
-  const handleOpen = (idx) => navigate(`/recipe/${idx}`);
+  const handleOpen = (recipe) => navigate(`/recipe/${recipe.id}`);
 
   return (
     <div className="space-y-8" data-testid="ask-page">
