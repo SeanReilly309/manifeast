@@ -1,0 +1,37 @@
+{
+  "summary": "Security hardening verification: 14/17 pytest cases PASS. Size caps (SEC-001), rate limits (SEC-001), gitignore (SEC-002), generic errors (SEC-003), and dependency cleanup all VERIFIED. CORS restriction FAILS because /app/backend/.env contains CORS_ORIGINS=\"*\" which overrides the safe default in server.py. One flaky /api/inspire 500 seen once; retried and passed.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "CORS (all /api/*)", "issue": "backend/.env sets CORS_ORIGINS=\"*\", causing Starlette CORSMiddleware to reflect Access-Control-Allow-Origin: * for ANY origin (verified with Origin: https://evil.example.com). This nullifies the SEC hardening intent of restricting CORS. Main agent must remove CORS_ORIGINS from backend/.env (or set to 'https://manifest.ie,https://www.manifest.ie,https://whatieat.preview.emergentagent.com') so server.py default takes effect. Note: allow_credentials=False so no credential leak, but wildcard still permits any web origin to invoke AI endpoints from the browser.", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "/api/inspire", "issue": "Intermittent 500 'Inspiration failed' — LLM/model flakiness. Passed on retry. Not a regression."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_security.py",
+    "/app/test_reports/pytest/security_results.xml"
+  ],
+  "action_items": [
+    "Remove or fix CORS_ORIGINS=\"*\" in /app/backend/.env — it overrides the hardened default in server.py and defeats SEC hardening. Recommended value: unset it, or set CORS_ORIGINS=\"https://manifest.ie,https://www.manifest.ie,https://whatieat.preview.emergentagent.com\"."
+  ],
+  "critical_code_review_comments": [
+    "server.py CORS defaults are correct, but .env value overrides them. Consider guarding: if CORS_ORIGINS is '*' and allow_credentials=False is fine but wildcard still exposes AI endpoints to any web origin — either force-reject wildcard or log a warning.",
+    "Size-cap check runs after Pydantic model parses the entire request body — for a 10MB base64 payload the body is already loaded in memory before rejection. This is acceptable but a middleware-level Content-Length guard would be stronger.",
+    "Rate limiter is in-memory (slowapi default); resets on process restart and does not share state across replicas. Fine for single-instance preview; document for prod."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_security.py (new)"
+  ],
+  "success_rate": {"backend": "82% (14/17; the 3 failures = 2 CORS + 1 flaky LLM which passed on retry)", "frontend": "100% smoke (loads, categories, diet chips, bottom nav present)"},
+  "seed_data_creation": "none",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "SEC-001 (size caps + rate limits both /scan 30/hr and /ask-recipes 60/hr confirmed returning 413/400/429). SEC-002 gitignore verified via `git -C /app check-ignore /app/backend/.env`. SEC-003 generic errors verified — no 'Traceback'/'Exception' leaked. Deps cleanup verified. The CORS issue is env-level, not code-level: server.py is correct, backend/.env contains CORS_ORIGINS=\"*\". Rerun test_security.py after main agent fixes .env — expect 16/17 pass (only flaky inspire may fail). Note: rate-limit tests exhaust budgets (30/hr scan, 60/hr ask-recipes) so `sudo supervisorctl restart backend` before rerunning.",
+  "rca of the issue": "CORS wildcard: /app/backend/.env line contains CORS_ORIGINS=\"*\". server.py reads CORS_ORIGINS with a safe default of the three prod/preview origins, but the env override wins. Starlette CORSMiddleware treats '*' as universal and returns Access-Control-Allow-Origin: * for any preflight (allow_credentials=False so browsers accept it). Fix: remove that .env key (default kicks in) or set it to the intended allow-list."
+}

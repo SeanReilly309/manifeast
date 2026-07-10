@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException
+from fastapi import FastAPI, APIRouter, HTTPException, Request
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -12,6 +12,9 @@ from datetime import datetime, timezone
 from typing import List, Optional
 
 from pydantic import BaseModel, Field, ConfigDict
+
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from emergentintegrations.llm.chat import (
     LlmChat,
@@ -34,7 +37,24 @@ EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
 LLM_MODEL = "gpt-4o"
 LLM_PROVIDER = "openai"
 
+# Input size limits (defence in depth against abuse and OOM)
+MAX_IMAGE_B64_CHARS = 10_000_000       # ~7.5 MB decoded
+MAX_QUERY_CHARS = 500
+MAX_INGREDIENTS = 60
+MAX_INGREDIENT_LEN = 80
+
+# Rate limiter — respects X-Forwarded-For when behind a reverse proxy
+def _client_key(request: Request) -> str:
+    fwd = request.headers.get("x-forwarded-for", "")
+    if fwd:
+        return fwd.split(",")[0].strip()
+    return request.client.host if request.client else "anonymous"
+
+limiter = Limiter(key_func=_client_key, default_limits=[])
+
 app = FastAPI()
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 api_router = APIRouter(prefix="/api")
 
 # ---------- Models ----------
@@ -128,6 +148,38 @@ class MealAnalysis(BaseModel):
 
 
 # ---------- Helpers ----------
+def _validate_image_size(b64: str) -> None:
+    if len(b64) > MAX_IMAGE_B64_CHARS:
+        raise HTTPException(status_code=413, detail="Image too large")
+
+
+def _validate_text(text: str, max_chars: int, label: str) -> str:
+    if not isinstance(text, str):
+        raise HTTPException(status_code=400, detail=f"Invalid {label}")
+    t = text.strip()
+    if len(t) > max_chars:
+        raise HTTPException(status_code=400, detail=f"{label} too long")
+    return t
+
+
+def _validate_ingredients(items: List[str]) -> List[str]:
+    if not isinstance(items, list):
+        raise HTTPException(status_code=400, detail="ingredients must be a list")
+    if len(items) > MAX_INGREDIENTS:
+        raise HTTPException(status_code=400, detail="Too many ingredients")
+    out: List[str] = []
+    for it in items:
+        if not isinstance(it, str):
+            continue
+        s = it.strip()
+        if not s:
+            continue
+        if len(s) > MAX_INGREDIENT_LEN:
+            raise HTTPException(status_code=400, detail="Ingredient name too long")
+        out.append(s)
+    return out
+
+
 def _strip_data_url(b64: str) -> str:
     if b64.startswith("data:"):
         # data:image/jpeg;base64,xxxx
@@ -186,7 +238,9 @@ async def root():
 
 
 @api_router.post("/scan", response_model=ScanResponse)
-async def scan_fridge(req: ScanRequest):
+@limiter.limit("30/hour")
+async def scan_fridge(request: Request, req: ScanRequest):
+    _validate_image_size(req.image_base64)
     b64 = _strip_data_url(req.image_base64)
     if not b64 or len(b64) < 100:
         raise HTTPException(status_code=400, detail="Invalid image data")
@@ -219,9 +273,9 @@ async def scan_fridge(req: ScanRequest):
                 continue
             seen.add(name)
             cleaned.append(name)
-    except Exception as e:
+    except Exception:
         logging.exception("scan failed")
-        raise HTTPException(status_code=500, detail=f"Vision analysis failed: {e}")
+        raise HTTPException(status_code=500, detail="Vision analysis failed")
 
     scan_id = str(uuid.uuid4())
     await db.scans.insert_one(
@@ -288,11 +342,13 @@ def _build_recipe(r: dict) -> Optional["Recipe"]:
 
 
 @api_router.post("/suggest", response_model=SuggestResponse)
-async def suggest_recipes(req: SuggestRequest):
-    if not req.ingredients:
+@limiter.limit("60/hour")
+async def suggest_recipes(request: Request, req: SuggestRequest):
+    cleaned_in = _validate_ingredients(req.ingredients)
+    if not cleaned_in:
         raise HTTPException(status_code=400, detail="ingredients list is required")
 
-    ingredient_list = ", ".join(req.ingredients)
+    ingredient_list = ", ".join(cleaned_in)
     n = max(3, min(req.max_recipes, 5))
 
     system = (
@@ -334,9 +390,9 @@ async def suggest_recipes(req: SuggestRequest):
             built = _build_recipe(r)
             if built is not None:
                 recipes.append(built)
-    except Exception as e:
+    except Exception:
         logging.exception("suggest failed")
-        raise HTTPException(status_code=500, detail=f"Recipe suggestion failed: {e}")
+        raise HTTPException(status_code=500, detail="Recipe suggestion failed")
 
     if not recipes:
         raise HTTPException(status_code=500, detail="No recipes returned")
@@ -345,7 +401,7 @@ async def suggest_recipes(req: SuggestRequest):
     await db.suggestions.insert_one(
         {
             "id": suggestion_id,
-            "ingredients": req.ingredients,
+            "ingredients": cleaned_in,
             "recipes": [r.model_dump() for r in recipes],
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
@@ -354,8 +410,9 @@ async def suggest_recipes(req: SuggestRequest):
 
 
 @api_router.post("/ask-recipes", response_model=SuggestResponse)
-async def ask_recipes(req: AskRecipesRequest):
-    q = (req.query or "").strip()
+@limiter.limit("60/hour")
+async def ask_recipes(request: Request, req: AskRecipesRequest):
+    q = _validate_text(req.query or "", MAX_QUERY_CHARS, "query")
     if not q:
         raise HTTPException(status_code=400, detail="query is required")
     n = max(3, min(req.max_recipes, 6))
@@ -393,9 +450,9 @@ async def ask_recipes(req: AskRecipesRequest):
             built = _build_recipe(r)
             if built is not None:
                 recipes.append(built)
-    except Exception as e:
+    except Exception:
         logging.exception("ask-recipes failed")
-        raise HTTPException(status_code=500, detail=f"Recipe search failed: {e}")
+        raise HTTPException(status_code=500, detail="Recipe search failed")
 
     if not recipes:
         raise HTTPException(status_code=500, detail="No recipes returned")
@@ -413,7 +470,8 @@ async def ask_recipes(req: AskRecipesRequest):
 
 
 @api_router.post("/inspire", response_model=SuggestResponse)
-async def inspire_meals(req: InspireRequest):
+@limiter.limit("60/hour")
+async def inspire_meals(request: Request, req: InspireRequest):
     category = (req.category or "").strip().lower()
     allowed = {"breakfast", "lunch", "dinner", "snack", "dessert"}
     if category not in allowed:
@@ -495,9 +553,9 @@ async def inspire_meals(req: InspireRequest):
             built = _build_recipe(r)
             if built is not None:
                 recipes.append(built)
-    except Exception as e:
+    except Exception:
         logging.exception("inspire failed")
-        raise HTTPException(status_code=500, detail=f"Inspiration failed: {e}")
+        raise HTTPException(status_code=500, detail="Inspiration failed")
 
     if not recipes:
         raise HTTPException(status_code=500, detail="No recipes returned")
@@ -515,7 +573,9 @@ async def inspire_meals(req: InspireRequest):
 
 
 @api_router.post("/analyze-meal", response_model=MealAnalysis)
-async def analyze_meal(req: AnalyzeMealRequest):
+@limiter.limit("30/hour")
+async def analyze_meal(request: Request, req: AnalyzeMealRequest):
+    _validate_image_size(req.image_base64)
     b64 = _strip_data_url(req.image_base64)
     if not b64 or len(b64) < 100:
         raise HTTPException(status_code=400, detail="Invalid image data")
@@ -556,9 +616,9 @@ async def analyze_meal(req: AnalyzeMealRequest):
             notes=str(data.get("notes", "")).strip(),
             is_food=bool(data.get("is_food", True)),
         )
-    except Exception as e:
+    except Exception:
         logging.exception("analyze-meal failed")
-        raise HTTPException(status_code=500, detail=f"Meal analysis failed: {e}")
+        raise HTTPException(status_code=500, detail="Meal analysis failed")
 
     await db.meal_analyses.insert_one(
         {
@@ -573,12 +633,17 @@ async def analyze_meal(req: AnalyzeMealRequest):
 
 app.include_router(api_router)
 
+# App is stateless & tokenless — no cookies, no credentials to protect.
+# Restrict origins to prod + preview by default; overridable via CORS_ORIGINS env.
+_DEFAULT_ORIGINS = "https://manifest.ie,https://www.manifest.ie,https://whatieat.preview.emergentagent.com"
+_cors_origins = [o.strip() for o in os.environ.get("CORS_ORIGINS", _DEFAULT_ORIGINS).split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_credentials=True,
-    allow_origins=os.environ.get("CORS_ORIGINS", "*").split(","),
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_credentials=False,
+    allow_origins=_cors_origins,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 logging.basicConfig(
