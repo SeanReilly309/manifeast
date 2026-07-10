@@ -46,7 +46,7 @@ export default function InspireMe() {
     setLoading(true);
     setError(null);
     try {
-      const data = await inspireMeals(cat, null, 6, [], force);
+      const data = await inspireMeals(cat, null, 4, [], force);
       const next = { ...byCategory, [cat]: data.recipes || [] };
       setByCategory(next);
       writeCache(next);
@@ -70,7 +70,7 @@ export default function InspireMe() {
     for (const cat of others) {
       if ((byCategory[cat] || []).length > 0) continue;
       try {
-        const data = await inspireMeals(cat, null, 6, [], false);
+        const data = await inspireMeals(cat, null, 4, [], false);
         setByCategory((prev) => {
           const next = { ...prev, [cat]: data.recipes || [] };
           writeCache(next);

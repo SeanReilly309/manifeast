@@ -42,7 +42,7 @@ export const askRecipes = async (query, maxRecipes = 5) => {
   return data;
 };
 
-export const inspireMeals = async (category, coach = null, count = 6, diets = [], refresh = false) => {
+export const inspireMeals = async (category, coach = null, count = 4, diets = [], refresh = false) => {
   const { data } = await client.post("/inspire", {
     category,
     count,
