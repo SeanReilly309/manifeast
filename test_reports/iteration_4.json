@@ -1,0 +1,35 @@
+{
+  "summary": "Verified iteration 4 features: (1) POST /api/inspire diet filters (vegetarian, vegan, gluten_free, low_carb, dairy_free, unknown-ignored) and (2) RecipeDetail scale toggle (1/2x, 1x, 2x) with no drift. Backend: 5/5 new diet tests passing. Frontend: diet chips, multi-select, clear button, localStorage persistence across reload, and scale toggle math on qty cells + yield pill all pass — 1x -> 2x -> 1x returns to identical original strings (zero drift across all 6 ingredient cells in tested recipe).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "RecipeDetail (Inspire recipe)", "issues": ["Recipe hero image occasionally unrelated to the dish (e.g., 'Overnight Oats with Berries' rendered a street/cat photo). Pre-existing behavior of recipeImage/Unsplash fallback, not caused by this iteration but user-visible."]},
+      {"screen": "Scaled ingredients", "issues": ["Units not pluralized after scaling — e.g., '1 cup (240ml)' x2 becomes '2 cup (480ml)' instead of '2 cups (480ml)'. Cosmetic only; the numeric spec examples in the task still match. Consider a simple unit-pluralization pass in scaleQuantity."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_inspire_diets.py",
+    "/app/test_reports/pytest/inspire_diets_results.xml"
+  ],
+  "action_items": [
+    "Optional: pluralize units in scaleQuantity when scaled value > 1 (cup -> cups, tablespoon -> tablespoons).",
+    "Optional (pre-existing): improve recipeImage() matching so inspire hero images better represent the dish."
+  ],
+  "critical_code_review_comments": [
+    "server.py diet_map is complete and unknown ids are silently ignored via list-comprehension filter — safe.",
+    "Diet hint prompt uses 'AND' joined labels — good for hard-constraint framing; LLM compliance was 100% across 5 tests (veg+GF, vegan, low_carb, no-diet, unknown-diet).",
+    "scale.js: parseToken handles unicode fractions and mixed numbers correctly; formatNumber snaps to nearest clean fraction with 0.03 tolerance. Works well in practice. Minor: '1/2 tablespoon' when scaling from '1 tablespoon' x 0.5 is grammatically fine; but plural forms are not adjusted.",
+    "RecipeDetail: scale state is local (resets on remount / navigation) — expected behaviour, but users returning via Back may want persistence. Not required.",
+    "InspireMe cacheKey `category|sorted-diets` correctly separates cached results per diet combo; localStorage persistence for diets confirmed."
+  ],
+  "updated_files": ["/app/backend/tests/test_inspire_diets.py"],
+  "success_rate": {"backend": "100% (5/5 diet tests)", "frontend": "100% (Inspire diet chips + multi-select + clear + persistence + Scale toggle 1x/2x/half/no-drift)"},
+  "test_credentials": "N/A — no auth",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "test_inspire_diets.py at /app/backend/tests/ covers all diet flows (~2min because 4 LLM calls). Requires REACT_APP_BACKEND_URL env var when running pytest from /app (source frontend/.env or export). Frontend tests should always clear localStorage keys manifeast_inspire_cache and manifeast_inspire_diets before each Inspire test to avoid stale results. scale_2x renders '2 cup' (missing plural s) — that's expected behavior, not a bug per spec.",
+  "rca_of_the_issue": "N/A — feature validation, no bugs."
+}

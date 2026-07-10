@@ -78,6 +78,7 @@ class InspireRequest(BaseModel):
     category: str  # breakfast | lunch | dinner | snack | dessert
     count: int = 8
     coach: Optional[CoachHint] = None
+    diets: List[str] = Field(default_factory=list)  # e.g. ['vegetarian','gluten_free','low_carb']
 
 
 class Nutrition(BaseModel):
@@ -422,6 +423,21 @@ async def inspire_meals(req: InspireRequest):
         )
     n = max(4, min(req.count, 10))
 
+    diet_map = {
+        "vegetarian": "vegetarian (no meat or fish)",
+        "vegan": "vegan (no animal products at all — no meat, dairy, eggs, honey)",
+        "gluten_free": "gluten-free (no wheat, barley, rye, regular pasta, bread, or soy sauce)",
+        "low_carb": "low-carb (under ~25g net carbs per serving; avoid pasta, rice, bread, sugar, potatoes)",
+        "dairy_free": "dairy-free (no milk, butter, cheese, yogurt, cream)",
+    }
+    diet_hint = ""
+    diet_labels = [diet_map[d] for d in (req.diets or []) if d in diet_map]
+    if diet_labels:
+        diet_hint = (
+            " ALL recipes MUST be " + " AND ".join(diet_labels) + ". "
+            "This is a hard constraint — do not include a single recipe that violates any of these."
+        )
+
     coach_hint = ""
     if req.coach:
         parts = []
@@ -447,6 +463,7 @@ async def inspire_meals(req: InspireRequest):
         f"{category} ideas someone could cook at home. Mix cuisines, flavor profiles, "
         "and difficulty. Avoid near-duplicates. Include a couple of quick options and a "
         "couple of more ambitious ones."
+        f"{diet_hint}"
         f"{coach_hint} "
         "For each recipe return this JSON schema: "
         "title, emoji, difficulty ('easy'|'medium'|'hard'), time_minutes (int), "

@@ -1,9 +1,17 @@
+import { useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { ArrowLeft, Clock, ChefHat, ShoppingBasket, Check, Heart, Share2, Play } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { toast } from "sonner";
 import { useApp } from "../context/AppContext";
 import { recipeImage, fallbackFoodImage } from "../lib/recipeImage";
+import { scaleQuantity, scaleServings } from "../lib/scale";
+
+const SCALES = [
+  { value: 0.5, label: "½×" },
+  { value: 1, label: "1×" },
+  { value: 2, label: "2×" },
+];
 
 function buildShareText(recipe) {
   const lines = [
@@ -28,6 +36,7 @@ export default function RecipeDetail() {
   const { idx } = useParams();
   const navigate = useNavigate();
   const { recipes, addShoppingItems, isFavorite, toggleFavorite } = useApp();
+  const [scale, setScale] = useState(1);
   const i = Number(idx);
   const recipe = recipes?.[i];
 
@@ -146,11 +155,11 @@ export default function RecipeDetail() {
                 data-testid="recipe-yield"
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-brand-primary/10 border border-brand-primary/25 text-brand-primary font-semibold"
               >
-                {recipe.yield_text}
+                {scaleQuantity(recipe.yield_text, scale)}
               </span>
             ) : recipe.servings > 0 ? (
               <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-brand-line">
-                Serves {recipe.servings}
+                Serves {scaleServings(recipe.servings, scale)}
               </span>
             ) : null}
           </div>
@@ -185,13 +194,35 @@ export default function RecipeDetail() {
 
           {recipe.ingredients_detailed && recipe.ingredients_detailed.length > 0 && (
             <div className="space-y-3" data-testid="ingredients-detailed">
-              <div className="flex items-end justify-between">
+              <div className="flex items-end justify-between gap-3">
                 <h3 className="text-xs tracking-[0.22em] uppercase font-semibold text-brand-text-soft">
                   Ingredients
                 </h3>
-                {recipe.yield_text && (
-                  <p className="text-xs text-brand-text-soft italic">for {recipe.yield_text.toLowerCase()}</p>
-                )}
+                <div
+                  data-testid="scale-toggle"
+                  className="inline-flex items-center rounded-full bg-white border border-brand-line p-0.5"
+                  role="group"
+                  aria-label="Scale recipe"
+                >
+                  {SCALES.map((s) => {
+                    const active = s.value === scale;
+                    return (
+                      <button
+                        key={s.value}
+                        data-testid={`scale-${s.value === 0.5 ? "half" : s.value === 1 ? "1x" : "2x"}`}
+                        onClick={() => setScale(s.value)}
+                        aria-pressed={active}
+                        className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+                          active
+                            ? "bg-brand-primary text-white"
+                            : "text-brand-text-soft hover:text-brand-text"
+                        }`}
+                      >
+                        {s.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
               <ul className="rounded-2xl bg-white border border-brand-line divide-y divide-brand-line overflow-hidden">
                 {recipe.ingredients_detailed.map((ing, k) => (
@@ -201,8 +232,11 @@ export default function RecipeDetail() {
                   >
                     <span className="text-brand-text capitalize">{ing.name}</span>
                     {ing.quantity && (
-                      <span className="text-sm font-semibold text-brand-primary tabular-nums text-right whitespace-nowrap">
-                        {ing.quantity}
+                      <span
+                        data-testid={`qty-${k}`}
+                        className="text-sm font-semibold text-brand-primary tabular-nums text-right whitespace-nowrap"
+                      >
+                        {scaleQuantity(ing.quantity, scale)}
                       </span>
                     )}
                   </li>

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2, RefreshCw, Sparkles, Sun, Sandwich, UtensilsCrossed, Cookie, Apple } from "lucide-react";
+import { Loader2, RefreshCw, Sparkles, Sun, Sandwich, UtensilsCrossed, Cookie, Apple, X } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { toast } from "sonner";
 import { RecipeCard } from "../components/RecipeCard";
@@ -15,8 +15,17 @@ const CATEGORIES = [
   { id: "dessert", label: "Desserts", icon: Cookie },
 ];
 
+const DIETS = [
+  { id: "vegetarian", label: "Vegetarian" },
+  { id: "vegan", label: "Vegan" },
+  { id: "gluten_free", label: "Gluten-free" },
+  { id: "low_carb", label: "Low-carb" },
+  { id: "dairy_free", label: "Dairy-free" },
+];
+
 const LS_COACH_PROFILE = "manifeast_coach_profile";
 const LS_INSPIRE_CACHE = "manifeast_inspire_cache";
+const LS_INSPIRE_DIETS = "manifeast_inspire_diets";
 
 function readCoachHint() {
   try {
@@ -64,40 +73,57 @@ export default function InspireMe() {
   const { setRecipes } = useApp();
   const [category, setCategory] = useState("breakfast");
   const [loading, setLoading] = useState(false);
-  const [byCategory, setByCategory] = useState(() => readCache());
+  const [byKey, setByKey] = useState(() => readCache());
   const [coachOn, setCoachOn] = useState(false);
+  const [diets, setDiets] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(LS_INSPIRE_DIETS) || "[]"); }
+    catch { return []; }
+  });
   const navigate = useNavigate();
 
-  const results = byCategory[category] || [];
+  useEffect(() => {
+    try { localStorage.setItem(LS_INSPIRE_DIETS, JSON.stringify(diets)); }
+    catch { /* ignore */ }
+  }, [diets]);
 
-  const load = useCallback(async (cat, { force = false } = {}) => {
-    if (!force && (byCategory[cat] || []).length > 0) return;
+  const cacheKey = `${category}|${[...diets].sort().join(",")}`;
+  const results = byKey[cacheKey] || [];
+
+  const load = useCallback(async (cat, dietList, { force = false } = {}) => {
+    const key = `${cat}|${[...dietList].sort().join(",")}`;
+    if (!force && (byKey[key] || []).length > 0) return;
     setLoading(true);
     try {
       const coach = readCoachHint();
       setCoachOn(!!coach?.target_kcal);
-      const data = await inspireMeals(cat, coach, 8);
-      const next = { ...byCategory, [cat]: data.recipes || [] };
-      setByCategory(next);
+      const data = await inspireMeals(cat, coach, 8, dietList);
+      const next = { ...byKey, [key]: data.recipes || [] };
+      setByKey(next);
       writeCache(next);
     } catch (e) {
       toast.error(e?.response?.data?.detail || e?.message || "Couldn't fetch ideas");
     } finally {
       setLoading(false);
     }
-  }, [byCategory]);
+  }, [byKey]);
 
   useEffect(() => {
-    load(category);
+    load(category, diets);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [category]);
+  }, [category, diets]);
 
   const handleOpen = (i) => {
     setRecipes(results);
     navigate(`/recipe/${i}`);
   };
 
-  const shuffle = () => load(category, { force: true });
+  const shuffle = () => load(category, diets, { force: true });
+
+  const toggleDiet = (id) => {
+    setDiets((prev) => (prev.includes(id) ? prev.filter((d) => d !== id) : [...prev, id]));
+  };
+
+  const clearDiets = () => setDiets([]);
 
   return (
     <div className="space-y-8" data-testid="inspire-page">
@@ -144,6 +170,45 @@ export default function InspireMe() {
               </button>
             );
           })}
+        </div>
+      </div>
+
+      {/* Diet filters */}
+      <div className="-mx-5 md:mx-0">
+        <div
+          data-testid="inspire-diets"
+          className="flex items-center gap-2 overflow-x-auto no-scrollbar px-5 md:px-0 pb-1"
+        >
+          <span className="text-xs tracking-[0.18em] uppercase font-semibold text-brand-text-soft pr-1 flex-shrink-0">
+            Diet
+          </span>
+          {DIETS.map((d) => {
+            const active = diets.includes(d.id);
+            return (
+              <button
+                key={d.id}
+                data-testid={`diet-${d.id}`}
+                onClick={() => toggleDiet(d.id)}
+                aria-pressed={active}
+                className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                  active
+                    ? "bg-brand-secondary text-white border-brand-secondary shadow-[0_4px_12px_rgba(129,178,154,0.35)]"
+                    : "bg-white text-brand-text-soft border-brand-line hover:text-brand-text"
+                }`}
+              >
+                {d.label}
+              </button>
+            );
+          })}
+          {diets.length > 0 && (
+            <button
+              data-testid="diet-clear"
+              onClick={clearDiets}
+              className="flex-shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium text-brand-text-soft hover:text-brand-primary"
+            >
+              <X className="w-3 h-3" strokeWidth={2.2} /> clear
+            </button>
+          )}
         </div>
       </div>
 
