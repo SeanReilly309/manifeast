@@ -75,6 +75,11 @@ class Nutrition(BaseModel):
     carbs_g: int = 0
 
 
+class IngredientDetail(BaseModel):
+    name: str
+    quantity: str = ""
+
+
 class Recipe(BaseModel):
     id: str
     title: str
@@ -84,9 +89,11 @@ class Recipe(BaseModel):
     description: str
     ingredients_used: List[str]
     missing_ingredients: List[str]
+    ingredients_detailed: List[IngredientDetail] = Field(default_factory=list)
     instructions: List[str]
     nutrition: Nutrition = Field(default_factory=Nutrition)
     servings: int = 1
+    yield_text: str = ""
     image_query: str = ""
 
 
@@ -228,6 +235,23 @@ def _build_nutrition(raw: dict) -> "Nutrition":
     )
 
 
+def _build_ingredients_detailed(raw) -> List["IngredientDetail"]:
+    out: List[IngredientDetail] = []
+    if not isinstance(raw, list):
+        return out
+    for item in raw:
+        if isinstance(item, dict):
+            name = str(item.get("name", "")).strip()
+            qty = str(item.get("quantity", "")).strip()
+            if name:
+                out.append(IngredientDetail(name=name.lower(), quantity=qty))
+        elif isinstance(item, str):
+            s = item.strip()
+            if s:
+                out.append(IngredientDetail(name=s.lower(), quantity=""))
+    return out
+
+
 def _build_recipe(r: dict) -> Optional["Recipe"]:
     try:
         return Recipe(
@@ -239,8 +263,10 @@ def _build_recipe(r: dict) -> Optional["Recipe"]:
             description=str(r.get("description", "")).strip(),
             ingredients_used=_str_list(r.get("ingredients_used")),
             missing_ingredients=_str_list(r.get("missing_ingredients")),
+            ingredients_detailed=_build_ingredients_detailed(r.get("ingredients_detailed")),
             instructions=[str(x) for x in r.get("instructions", []) if isinstance(x, str)],
             servings=int(r.get("servings", 1) or 1),
+            yield_text=str(r.get("yield_text", "")).strip(),
             nutrition=_build_nutrition(r.get("nutrition")),
             image_query=str(r.get("image_query", "")).strip().lower(),
         )
@@ -264,9 +290,17 @@ async def suggest_recipes(req: SuggestRequest):
         "title (short, appetizing), emoji (single food emoji), difficulty ('easy' or 'medium'), "
         "time_minutes (integer total time), description (1 short sentence), ingredients_used (list of "
         "lowercase strings from the user's list that are used), missing_ingredients (list of lowercase "
-        "items the user does NOT have), instructions (3–6 concise numbered steps), "
-        "servings (integer, default 1), and nutrition (object with calories, protein_g, fat_g, carbs_g "
-        "as integers — estimate PER SERVING based on typical ingredient amounts; be realistic, not zero), "
+        "items the user does NOT have), "
+        "ingredients_detailed (REQUIRED — a complete ingredient list for the whole recipe as an array of "
+        'objects like {"name": "chicken breast", "quantity": "2 (about 400g)"} or '
+        '{"name": "olive oil", "quantity": "2 tbsp"}. Include EVERY ingredient needed with realistic measured '
+        "quantities — cups/tbsp/tsp/g/ml/whole units, whichever fits. Do not omit staples like salt/pepper/oil), "
+        "instructions (3–6 concise numbered steps that reference the same quantities), "
+        "servings (integer, default 2), "
+        'yield_text (REQUIRED short human-readable yield/output, e.g. "Serves 4", "Makes 12 muffins", '
+        '"1 loaf (10 slices)", "About 4 cups"), '
+        "and nutrition (object with calories, protein_g, fat_g, carbs_g as integers — estimate PER SERVING "
+        "based on the quantities above; be realistic, not zero), "
         "and image_query (2-4 comma-separated lowercase keywords describing what the finished dish "
         "would look like in a food photo, e.g. 'creamy chicken pasta, close up' or 'fried rice, bowl'). "
         'Return ONLY JSON of the form: {"recipes": [ {...}, {...} ]}'
@@ -319,10 +353,18 @@ async def ask_recipes(req: AskRecipesRequest):
         "twists (e.g. for 'cookies': classic chocolate chip, oatmeal raisin, peanut butter, "
         "no-bake, and one creative one). For each recipe return the same JSON schema as before: "
         "title, emoji, difficulty ('easy'|'medium'|'hard'), time_minutes (int), description "
-        "(one sentence), ingredients_used (the full ingredient list, lowercase), "
+        "(one sentence), ingredients_used (the full ingredient list, lowercase names only), "
         "missing_ingredients (empty array here since we don't know what they have), "
-        "instructions (3-8 concise numbered steps), servings (int), nutrition object "
-        "(calories, protein_g, fat_g, carbs_g per serving as integers, realistic), and "
+        "ingredients_detailed (REQUIRED — a complete ingredient list as an array of objects like "
+        '{"name": "all-purpose flour", "quantity": "2 1/4 cups (280g)"} or '
+        '{"name": "large eggs", "quantity": "2"} or {"name": "vanilla extract", "quantity": "1 tsp"}. '
+        "Include EVERY ingredient with realistic measured quantities — cups/tbsp/tsp/g/ml/whole units. "
+        "Do not omit staples like salt or oil), "
+        "instructions (3-8 concise numbered steps that reference the quantities above), "
+        "servings (int, default 2), "
+        'yield_text (REQUIRED — short human-readable output like "Makes 24 cookies", '
+        '"1 loaf (10 slices)", "Serves 4", "About 12 muffins"), '
+        "nutrition object (calories, protein_g, fat_g, carbs_g per serving as integers, realistic), and "
         "image_query (2-4 lowercase comma-separated keywords describing the finished dish "
         "for a food photo, e.g. 'chocolate chip cookies, close up'). "
         'Return ONLY JSON: {"recipes": [ {...}, {...} ]}'

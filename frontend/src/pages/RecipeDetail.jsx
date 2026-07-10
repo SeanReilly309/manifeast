@@ -141,11 +141,18 @@ export default function RecipeDetail() {
             <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-brand-line capitalize">
               <ChefHat className="w-4 h-4 text-brand-primary" strokeWidth={1.7} /> {recipe.difficulty}
             </span>
-            {recipe.servings > 0 && (
+            {recipe.yield_text ? (
+              <span
+                data-testid="recipe-yield"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-brand-primary/10 border border-brand-primary/25 text-brand-primary font-semibold"
+              >
+                {recipe.yield_text}
+              </span>
+            ) : recipe.servings > 0 ? (
               <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-brand-line">
                 Serves {recipe.servings}
               </span>
-            )}
+            ) : null}
           </div>
 
           {recipe.nutrition && recipe.nutrition.calories > 0 && (
@@ -176,21 +183,51 @@ export default function RecipeDetail() {
             </div>
           )}
 
-          <div className="space-y-3">
-            <h3 className="text-xs tracking-[0.22em] uppercase font-semibold text-brand-text-soft">
-              You have
-            </h3>
-            <div className="flex flex-wrap gap-2">
-              {(recipe.ingredients_used || []).map((ing) => (
-                <span key={ing} className="chip-available">
-                  <Check className="w-3 h-3" strokeWidth={2.5} /> {ing}
-                </span>
-              ))}
-              {(recipe.ingredients_used || []).length === 0 && (
-                <p className="text-sm text-brand-text-soft">No used items listed.</p>
-              )}
+          {recipe.ingredients_detailed && recipe.ingredients_detailed.length > 0 && (
+            <div className="space-y-3" data-testid="ingredients-detailed">
+              <div className="flex items-end justify-between">
+                <h3 className="text-xs tracking-[0.22em] uppercase font-semibold text-brand-text-soft">
+                  Ingredients
+                </h3>
+                {recipe.yield_text && (
+                  <p className="text-xs text-brand-text-soft italic">for {recipe.yield_text.toLowerCase()}</p>
+                )}
+              </div>
+              <ul className="rounded-2xl bg-white border border-brand-line divide-y divide-brand-line overflow-hidden">
+                {recipe.ingredients_detailed.map((ing, k) => (
+                  <li
+                    key={`${k}-${ing.name}`}
+                    className="flex items-baseline justify-between gap-4 px-4 py-3"
+                  >
+                    <span className="text-brand-text capitalize">{ing.name}</span>
+                    {ing.quantity && (
+                      <span className="text-sm font-semibold text-brand-primary tabular-nums text-right whitespace-nowrap">
+                        {ing.quantity}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
             </div>
-          </div>
+          )}
+
+          {!(recipe.ingredients_detailed?.length > 0 && (recipe.missing_ingredients || []).length === 0) && (
+            <div className="space-y-3">
+              <h3 className="text-xs tracking-[0.22em] uppercase font-semibold text-brand-text-soft">
+                You have
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {(recipe.ingredients_used || []).map((ing) => (
+                  <span key={ing} className="chip-available">
+                    <Check className="w-3 h-3" strokeWidth={2.5} /> {ing}
+                  </span>
+                ))}
+                {(recipe.ingredients_used || []).length === 0 && (
+                  <p className="text-sm text-brand-text-soft">No used items listed.</p>
+                )}
+              </div>
+            </div>
+          )}
 
           {(recipe.missing_ingredients || []).length > 0 && (
             <div className="space-y-3">

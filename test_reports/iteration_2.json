@@ -1,0 +1,27 @@
+{
+  "summary": "Verified bug fix: /api/ask-recipes and /api/suggest now return yield_text and ingredients_detailed with quantities; RecipeDetail renders the yield pill (data-testid='recipe-yield') and the ingredients-detailed section on both Ask flow and Scan flow. 3/3 new backend pytest cases pass and both Playwright E2E flows pass.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Top nav (desktop)", "issues": ["'Coach' link appears twice in the top navigation (between Analyze/Saved and again between Ask/About). Pre-existing, unrelated to this bug fix but worth cleaning up."]},
+      {"screen": "RecipeDetail hero image", "issues": ["Hero recipe image area sometimes renders empty (only the emoji bubble visible) — likely image_query lookup fallback not firing on some queries. Pre-existing (recipeImage lib), not part of this bug fix."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_recipes_detailed.py", "/app/backend/tests/test_api.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py _build_ingredients_detailed lowercases 'name' — RecipeDetail.jsx already applies CSS `capitalize`, so display is fine, but any future exact-match logic should keep case-insensitivity in mind.",
+    "RecipeDetail conditional for the legacy 'You have' block: `!(recipe.ingredients_detailed?.length > 0 && (recipe.missing_ingredients || []).length === 0)` — correctly hides the redundant chip list on the Ask flow while keeping it for Scan/suggest. Logic verified via both flows.",
+    "yield_text defaults to '' in Pydantic model — LLM occasionally could return empty; endpoints don't currently reject that. Consider a fallback to `Serves {servings}` server-side if yield_text is blank (frontend already falls back visually)."
+  ],
+  "updated_files": ["/app/backend/tests/test_recipes_detailed.py"],
+  "success_rate": {"backend": "100% (3/3 new + 6/6 existing)", "frontend": "100% (Ask + Scan detail flows)"},
+  "test_credentials": "N/A — no auth",
+  "seed_data_creation": "None new. /tmp/fridge.jpg from iteration 1 remains.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "New tests at /app/backend/tests/test_recipes_detailed.py cover yield_text + ingredients_detailed for /ask-recipes (cookies, banana bread) and /suggest regression. LLM calls take 15-30s each — allow >=180s timeouts. Ask flow confirmed to hide the legacy 'You have' block (since missing_ingredients is always empty on Ask); Scan flow still shows it plus the new ingredients list.",
+  "rca_of_the_issue": "Bug root cause was that both /api/suggest and /api/ask-recipes prompts previously requested only a flat lowercase ingredient string list with no quantities, and no yield hint. Fix: extended the Recipe Pydantic model with `ingredients_detailed: List[IngredientDetail]` and `yield_text: str`; the LLM prompts now REQUIRE these fields with example quantity formats and yield strings. Frontend RecipeDetail.jsx renders the new yield pill and detailed ingredient list. Verified end-to-end."
+}
