@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2, RefreshCw, Sparkles, Sun, Sandwich, UtensilsCrossed, Cookie, Apple, X } from "lucide-react";
+import { Loader2, RefreshCw, Sun, Sandwich, UtensilsCrossed, Cookie, Apple } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { toast } from "sonner";
 import { RecipeCard } from "../components/RecipeCard";
@@ -15,45 +15,7 @@ const CATEGORIES = [
   { id: "dessert", label: "Desserts", icon: Cookie },
 ];
 
-const DIETS = [
-  { id: "vegetarian", label: "Vegetarian" },
-  { id: "vegan", label: "Vegan" },
-  { id: "gluten_free", label: "Gluten-free" },
-  { id: "low_carb", label: "Low-carb" },
-  { id: "dairy_free", label: "Dairy-free" },
-];
-
-const LS_COACH_PROFILE = "manifeast_coach_profile";
 const LS_INSPIRE_CACHE = "manifeast_inspire_cache";
-const LS_INSPIRE_DIETS = "manifeast_inspire_diets";
-
-function readCoachHint() {
-  try {
-    const raw = localStorage.getItem(LS_COACH_PROFILE);
-    if (!raw) return null;
-    const p = JSON.parse(raw);
-    const age = parseInt(p.age, 10) || 0;
-    const h = parseFloat(p.height_cm) || 0;
-    const w = parseFloat(p.weight_kg) || 0;
-    if (!age || !h || !w) return { goal: p.goal || null };
-    const bmr =
-      p.sex === "female"
-        ? 10 * w + 6.25 * h - 5 * age - 161
-        : 10 * w + 6.25 * h - 5 * age + 5;
-    const days = Math.max(0, Math.min(7, parseInt(p.exerciseDays, 10) || 0));
-    const intensityKcal = { easy: 200, moderate: 370, hard: 550 }[p.exerciseIntensity] || 370;
-    const typeMult = { walking: 0.7, cardio: 1.15, weights: 0.9, mixed: 1.0, sports: 1.05 }[p.exerciseType] || 1.0;
-    const tdee = bmr * 1.2 + (days * intensityKcal * typeMult) / 7;
-    const delta = { lose: -500, maintain: 0, gain: 350 }[p.goal] ?? 0;
-    return {
-      target_kcal: Math.max(1200, Math.round(tdee + delta)),
-      protein_g: Math.round(w * 1.8),
-      goal: p.goal || "maintain",
-    };
-  } catch {
-    return null;
-  }
-}
 
 function readCache() {
   try {
@@ -73,57 +35,38 @@ export default function InspireMe() {
   const { setRecipes } = useApp();
   const [category, setCategory] = useState("breakfast");
   const [loading, setLoading] = useState(false);
-  const [byKey, setByKey] = useState(() => readCache());
-  const [coachOn, setCoachOn] = useState(false);
-  const [diets, setDiets] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(LS_INSPIRE_DIETS) || "[]"); }
-    catch { return []; }
-  });
+  const [byCategory, setByCategory] = useState(() => readCache());
   const navigate = useNavigate();
 
-  useEffect(() => {
-    try { localStorage.setItem(LS_INSPIRE_DIETS, JSON.stringify(diets)); }
-    catch { /* ignore */ }
-  }, [diets]);
+  const results = byCategory[category] || [];
 
-  const cacheKey = `${category}|${[...diets].sort().join(",")}`;
-  const results = byKey[cacheKey] || [];
-
-  const load = useCallback(async (cat, dietList, { force = false } = {}) => {
-    const key = `${cat}|${[...dietList].sort().join(",")}`;
-    if (!force && (byKey[key] || []).length > 0) return;
+  const load = useCallback(async (cat, { force = false } = {}) => {
+    if (!force && (byCategory[cat] || []).length > 0) return;
     setLoading(true);
     try {
-      const coach = readCoachHint();
-      setCoachOn(!!coach?.target_kcal);
-      const data = await inspireMeals(cat, coach, 8, dietList);
-      const next = { ...byKey, [key]: data.recipes || [] };
-      setByKey(next);
+      const data = await inspireMeals(cat, null, 8, []);
+      const next = { ...byCategory, [cat]: data.recipes || [] };
+      setByCategory(next);
       writeCache(next);
     } catch (e) {
       toast.error(e?.response?.data?.detail || e?.message || "Couldn't fetch ideas");
     } finally {
       setLoading(false);
     }
-  }, [byKey]);
+  }, [byCategory]);
 
   useEffect(() => {
-    load(category, diets);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [category, diets]);
+    // Clean up legacy keys from the removed diet-filter feature.
+    try { localStorage.removeItem("manifeast_inspire_diets"); } catch { /* ignore */ }
+    load(category);
+  }, [category]);
 
   const handleOpen = (i) => {
     setRecipes(results);
     navigate(`/recipe/${i}`);
   };
 
-  const shuffle = () => load(category, diets, { force: true });
-
-  const toggleDiet = (id) => {
-    setDiets((prev) => (prev.includes(id) ? prev.filter((d) => d !== id) : [...prev, id]));
-  };
-
-  const clearDiets = () => setDiets([]);
+  const shuffle = () => load(category, { force: true });
 
   return (
     <div className="space-y-8" data-testid="inspire-page">
@@ -137,11 +80,6 @@ export default function InspireMe() {
         <p className="text-brand-text-soft max-w-xl">
           Pick a meal &mdash; we&rsquo;ll toss you a fresh handful of ideas from quick classics
           to something you&rsquo;ve never tried.
-          {coachOn && (
-            <span className="block mt-1 text-sm text-brand-secondary-dark">
-              <Sparkles className="w-3.5 h-3.5 inline mb-0.5" strokeWidth={2} /> Personalized using your Coach targets.
-            </span>
-          )}
         </p>
       </div>
 
@@ -170,45 +108,6 @@ export default function InspireMe() {
               </button>
             );
           })}
-        </div>
-      </div>
-
-      {/* Diet filters */}
-      <div className="-mx-5 md:mx-0">
-        <div
-          data-testid="inspire-diets"
-          className="flex items-center gap-2 overflow-x-auto no-scrollbar px-5 md:px-0 pb-1"
-        >
-          <span className="text-xs tracking-[0.18em] uppercase font-semibold text-brand-text-soft pr-1 flex-shrink-0">
-            Diet
-          </span>
-          {DIETS.map((d) => {
-            const active = diets.includes(d.id);
-            return (
-              <button
-                key={d.id}
-                data-testid={`diet-${d.id}`}
-                onClick={() => toggleDiet(d.id)}
-                aria-pressed={active}
-                className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
-                  active
-                    ? "bg-brand-secondary text-white border-brand-secondary shadow-[0_4px_12px_rgba(129,178,154,0.35)]"
-                    : "bg-white text-brand-text-soft border-brand-line hover:text-brand-text"
-                }`}
-              >
-                {d.label}
-              </button>
-            );
-          })}
-          {diets.length > 0 && (
-            <button
-              data-testid="diet-clear"
-              onClick={clearDiets}
-              className="flex-shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium text-brand-text-soft hover:text-brand-primary"
-            >
-              <X className="w-3 h-3" strokeWidth={2.2} /> clear
-            </button>
-          )}
         </div>
       </div>
 
