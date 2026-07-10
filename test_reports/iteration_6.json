@@ -1,0 +1,24 @@
+{
+  "summary": "CORS hardening re-verified. All 20/20 pytest cases in test_security.py PASS (previous iteration was 14/17). App-layer CORS tested against http://localhost:8001 to bypass ingress: evil origin gets NO access-control-allow-origin header; manifest.ie, www.manifest.ie, and whatieat.preview.emergentagent.com are echoed correctly; allow-methods limited to GET/POST/OPTIONS; allow-credentials never true; wildcard-guard confirmed in server.py. Backend regression (/suggest, /ask-recipes, /inspire w/ diets, /scan, /analyze-meal) OK — schema includes yield_text + ingredients_detailed. Frontend smoke on /inspire OK — category swap loads 8 recipes each, RecipeDetail shows scale toggle (verified 1x->2x doubles 200g->400g), yield pill 'Serves 2', ingredients-detailed list, zero console errors.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_security.py",
+    "/app/test_reports/pytest/security_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py CORS guard is solid: rejects '' and '*' with a warning, filters '*' entries after split, allow_credentials=False. Good.",
+    "Rate limiter is in-memory (slowapi); resets on process restart and does not share state across replicas. Fine for single-instance preview; document for prod horizontal scaling.",
+    "Size-cap check runs after Pydantic parses request body — 10MB base64 body is loaded in memory before rejection. Acceptable; a middleware-level Content-Length guard would be stronger."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_security.py (updated CORS tests to hit http://localhost:8001 directly, parametrized allowed origins, added guard-in-code assertion + methods restriction check)"
+  ],
+  "success_rate": {"backend": "100% (20/20 pytest)", "frontend": "100% smoke (inspire + recipe detail + scale toggle)"},
+  "seed_data_creation": "none",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "CORS is fully hardened. test_security.py has 20 cases: 5 size caps + 2 gitignore + 1 generic error + 5 CORS (evil + 3 allowed origins parametrized + code-guard assertion) + 2 deps + 3 regression happy paths + 2 rate limits. Rate-limit tests exhaust /scan (30/hr) and /ask-recipes (60/hr) budgets so `sudo supervisorctl restart backend` before rerunning. CORS pytest cases target http://localhost:8001 directly since the K8s ingress adds its own CORS headers over app-layer headers.",
+  "rca of the issue": "Root cause of previous failure was /app/backend/.env containing CORS_ORIGINS=\"*\", which overrode server.py's safe default. Main agent fixed by (a) setting CORS_ORIGINS to explicit allow-list of three origins in .env, and (b) adding a defensive guard in server.py that rejects '' or '*' values with a warning and falls back to _DEFAULT_ORIGINS, plus filtering '*' entries after CSV split. Verified: evil-origin preflight returns 400 with NO access-control-allow-origin header (starlette CORSMiddleware refuses to emit ACAO for a non-listed origin), while the three allowed origins get their exact origin echoed back with methods GET/POST/OPTIONS and no allow-credentials header."
+}

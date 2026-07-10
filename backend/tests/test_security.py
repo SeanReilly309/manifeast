@@ -6,6 +6,8 @@ import requests
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://whatieat.preview.emergentagent.com").rstrip("/")
 API = f"{BASE_URL}/api"
+# CORS must be tested against the app layer directly (ingress adds its own CORS headers)
+LOCAL_API = "http://localhost:8001/api"
 
 
 # ---- SEC-001 SIZE CAPS ----
@@ -72,11 +74,11 @@ class TestGenericErrors:
         assert "Exception" not in body
 
 
-# ---- CORS ----
+# ---- CORS (app-layer, tested against localhost:8001 to bypass ingress) ----
 class TestCORS:
     def test_cors_evil_origin_not_allowed(self):
         r = requests.options(
-            f"{API}/inspire",
+            f"{LOCAL_API}/inspire",
             headers={
                 "Origin": "https://evil.example.com",
                 "Access-Control-Request-Method": "POST",
@@ -84,23 +86,43 @@ class TestCORS:
             },
             timeout=15,
         )
-        acao = r.headers.get("access-control-allow-origin", "")
-        assert acao != "*"
-        assert "evil.example.com" not in acao
+        # App must NOT emit an allow-origin header for a disallowed origin
+        assert "access-control-allow-origin" not in {k.lower() for k in r.headers.keys()}, \
+            f"unexpected ACAO for evil origin: {dict(r.headers)}"
 
-    def test_cors_allowed_origin(self):
+    @pytest.mark.parametrize("origin", [
+        "https://manifest.ie",
+        "https://www.manifest.ie",
+        "https://whatieat.preview.emergentagent.com",
+    ])
+    def test_cors_allowed_origin(self, origin):
         r = requests.options(
-            f"{API}/inspire",
+            f"{LOCAL_API}/inspire",
             headers={
-                "Origin": "https://manifest.ie",
+                "Origin": origin,
                 "Access-Control-Request-Method": "POST",
                 "Access-Control-Request-Headers": "content-type",
             },
             timeout=15,
         )
-        assert r.headers.get("access-control-allow-origin") == "https://manifest.ie"
-        # credentials should NOT be true
+        assert r.headers.get("access-control-allow-origin") == origin
+        # credentials must NOT be true
         assert r.headers.get("access-control-allow-credentials", "").lower() != "true"
+        # methods limited to GET/POST/OPTIONS
+        methods = r.headers.get("access-control-allow-methods", "")
+        for m in ["GET", "POST", "OPTIONS"]:
+            assert m in methods
+        # no DELETE/PUT/PATCH
+        for m in ["DELETE", "PUT", "PATCH"]:
+            assert m not in methods, f"{m} unexpectedly allowed: {methods}"
+
+    def test_cors_guard_rejects_wildcard_in_code(self):
+        """Verify server.py has a defensive guard against CORS_ORIGINS='*'."""
+        with open("/app/backend/server.py") as f:
+            src = f.read()
+        assert '_DEFAULT_ORIGINS' in src
+        assert 'in ("", "*")' in src or "in ('', '*')" in src, "guard against wildcard missing"
+        assert "allow_credentials=False" in src
 
 
 # ---- DEPS ----
