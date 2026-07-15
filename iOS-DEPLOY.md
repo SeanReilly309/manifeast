@@ -33,7 +33,7 @@ Cost after setup: **$0 per submission** (GitHub Actions is free on public repos,
   - **Platform:** iOS
   - **Name:** `Manifeast`
   - **Primary language:** English (Ireland)
-  - **Bundle ID:** `ie.manifeast.app` ← must match `capacitor.config.json` exactly. If it's not in the picklist, first go to https://developer.apple.com/account/resources/identifiers/list and register it there.
+  - **Bundle ID:** `com.manifeast.app` ← must match `capacitor.config.json` exactly. If it's not in the picklist, first go to https://developer.apple.com/account/resources/identifiers/list and register it there.
   - **SKU:** `manifeast-ios-01` (any unique string, just for your bookkeeping)
 - Tap **Create**.
 
@@ -140,14 +140,14 @@ The workflow auto-increments the build number using GitHub's run number, so you 
 | Workflow fails on "Import certificate" | Skip manual signing; the workflow's `-allowProvisioningUpdates` will use ASC API key to auto-generate. Delete the `IOS_CERT_*` secrets. |
 | altool: "Invalid API Key" | Double-check `APP_STORE_CONNECT_KEY_BASE64` was pasted without extra newlines and matches the Key ID. |
 | TestFlight build stuck in "Processing" | Apple takes 5–30 min. Longer means the build had missing symbols — check the Actions log for warnings. |
-| Bundle ID mismatch | Every reference (App Store Connect app record, `capacitor.config.json`, workflow `APP_BUNDLE_ID`) must match `ie.manifeast.app` exactly. |
+| Bundle ID mismatch | Every reference (App Store Connect app record, `capacitor.config.json`, workflow `APP_BUNDLE_ID`) must match `com.manifeast.app` exactly. |
 | "Missing Push Notifications Entitlement" | Manifeast doesn't use push notifications yet — nothing to fix. If Apple's warning trips the CI, add `-allowProvisioningUpdates` (already in the workflow). |
 
 ---
 
 ## What lives in the repo
 
-- `frontend/capacitor.config.json` — Capacitor app identity (`ie.manifeast.app`, `Manifeast`, `webDir: build`).
+- `frontend/capacitor.config.json` — Capacitor app identity (`com.manifeast.app`, `Manifeast`, `webDir: build`).
 - `frontend/ios/` — auto-generated Xcode project (created on first CI run, safe to commit or gitignore).
 - `.github/workflows/ios-build.yml` — the whole CI pipeline.
 - `iOS-DEPLOY.md` — this file.

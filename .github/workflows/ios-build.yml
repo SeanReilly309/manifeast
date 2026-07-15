@@ -31,7 +31,7 @@ jobs:
       IOS_CERT_P12_PASSWORD:         ${{ secrets.IOS_CERT_P12_PASSWORD }}
       IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
       IOS_TEAM_ID:                   ${{ secrets.IOS_TEAM_ID }}
-      APP_BUNDLE_ID:                 ie.manifeast.app
+      APP_BUNDLE_ID:                 com.manifeast.app
       # The URL your compiled web bundle hits at runtime (production API host)
       REACT_APP_BACKEND_URL:         ${{ secrets.REACT_APP_BACKEND_URL }}
 

@@ -1,5 +1,5 @@
 {
-  "appId": "ie.manifeast.app",
+  "appId": "com.manifeast.app",
   "appName": "Manifeast",
   "webDir": "build",
   "bundledWebRuntime": false,
