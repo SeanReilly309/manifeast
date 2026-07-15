@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@capacitor/cli": "6",
+    "@capacitor/core": "6",
+    "@capacitor/ios": "6",
     "@hookform/resolvers": "5.0.1",
     "@radix-ui/react-accordion": "1.2.8",
     "@radix-ui/react-alert-dialog": "1.1.11",
@@ -63,7 +66,11 @@
   "scripts": {
     "start": "craco start",
     "build": "craco build",
-    "test": "craco test"
+    "test": "craco test",
+    "cap:add:ios": "cap add ios",
+    "cap:sync": "cap sync ios",
+    "cap:open:ios": "cap open ios",
+    "ios:build": "yarn build && cap sync ios"
   },
   "browserslist": {
     "production": [

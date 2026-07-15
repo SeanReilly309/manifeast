@@ -1,0 +1,17 @@
+{
+  "appId": "ie.manifeast.app",
+  "appName": "Manifeast",
+  "webDir": "build",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https",
+    "iosScheme": "https",
+    "hostname": "manifeast.ie"
+  },
+  "ios": {
+    "contentInset": "always",
+    "backgroundColor": "#FAF7F1",
+    "limitsNavigationsToAppBoundDomains": false,
+    "scheme": "Manifeast"
+  }
+}
