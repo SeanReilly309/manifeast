@@ -37,18 +37,16 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'yarn'
-          cache-dependency-path: frontend/yarn.lock
 
       - name: Install frontend deps
         working-directory: frontend
-        run: yarn install --frozen-lockfile
+        run: yarn install --network-timeout 300000
 
       - name: Build production web bundle
         working-directory: frontend
@@ -73,14 +71,19 @@ jobs:
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" App/Info.plist
           echo "Version: $MARKETING ($BUILD_NUMBER)"
 
-      - name: Decode signing assets
+      - name: Decode ASC API key
         run: |
           mkdir -p $RUNNER_TEMP/signing
-          echo "$IOS_CERT_P12_BASE64" | base64 --decode > $RUNNER_TEMP/signing/cert.p12
-          echo "$IOS_PROVISIONING_PROFILE_BASE64" | base64 --decode > $RUNNER_TEMP/signing/profile.mobileprovision
           echo "$APP_STORE_CONNECT_KEY_BASE64" | base64 --decode > $RUNNER_TEMP/signing/AuthKey.p8
 
+      - name: Decode manual cert & profile (optional)
+        if: ${{ env.IOS_CERT_P12_BASE64 != '' && env.IOS_PROVISIONING_PROFILE_BASE64 != '' }}
+        run: |
+          echo "$IOS_CERT_P12_BASE64" | base64 --decode > $RUNNER_TEMP/signing/cert.p12
+          echo "$IOS_PROVISIONING_PROFILE_BASE64" | base64 --decode > $RUNNER_TEMP/signing/profile.mobileprovision
+
       - name: Import certificate to keychain
+        if: ${{ env.IOS_CERT_P12_BASE64 != '' }}
         run: |
           KEYCHAIN=$RUNNER_TEMP/build.keychain
           KEYCHAIN_PW="temppw$(uuidgen)"
@@ -93,6 +96,7 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PW" "$KEYCHAIN"
 
       - name: Install provisioning profile
+        if: ${{ env.IOS_PROVISIONING_PROFILE_BASE64 != '' }}
         run: |
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           UUID=$(security cms -D -i $RUNNER_TEMP/signing/profile.mobileprovision | grep -aA1 UUID | grep string | sed -E 's/.*<string>(.+)<\/string>.*/\1/')
@@ -101,19 +105,35 @@ jobs:
       - name: Build & archive
         working-directory: frontend/ios/App
         run: |
+          # Use Automatic signing with the ASC API key so Xcode can generate
+          # certs & profiles on the fly. Manual signing kicks in only if the
+          # optional IOS_CERT_P12_BASE64 secret is populated.
+          if [ -n "$IOS_CERT_P12_BASE64" ]; then
+            SIGN_STYLE=Manual
+          else
+            SIGN_STYLE=Automatic
+          fi
           xcodebuild -workspace App.xcworkspace \
             -scheme App \
             -configuration Release \
             -destination "generic/platform=iOS" \
             -archivePath "$RUNNER_TEMP/App.xcarchive" \
             -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/signing/AuthKey.p8" \
+            -authenticationKeyID "$APP_STORE_CONNECT_KEY_ID" \
+            -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID" \
             DEVELOPMENT_TEAM="$IOS_TEAM_ID" \
-            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_STYLE=$SIGN_STYLE \
             PRODUCT_BUNDLE_IDENTIFIER="$APP_BUNDLE_ID" \
             archive | xcpretty
 
       - name: Write export options plist
         run: |
+          if [ -n "$IOS_CERT_P12_BASE64" ]; then
+            EXPORT_SIGN_STYLE="manual"
+          else
+            EXPORT_SIGN_STYLE="automatic"
+          fi
           cat > $RUNNER_TEMP/ExportOptions.plist <<PLIST
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -122,7 +142,7 @@ jobs:
             <key>method</key><string>app-store</string>
             <key>teamID</key><string>${IOS_TEAM_ID}</string>
             <key>uploadSymbols</key><true/>
-            <key>signingStyle</key><string>manual</string>
+            <key>signingStyle</key><string>${EXPORT_SIGN_STYLE}</string>
             <key>destination</key><string>export</string>
           </dict>
           </plist>
@@ -134,11 +154,14 @@ jobs:
             -archivePath "$RUNNER_TEMP/App.xcarchive" \
             -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
             -exportPath "$RUNNER_TEMP/export" \
-            -allowProvisioningUpdates | xcpretty
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/signing/AuthKey.p8" \
+            -authenticationKeyID "$APP_STORE_CONNECT_KEY_ID" \
+            -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID" | xcpretty
           ls -la "$RUNNER_TEMP/export"
 
       - name: Upload .ipa artifact (for debugging / manual submit)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: Manifeast-iOS-${{ github.run_number }}
           path: ${{ runner.temp }}/export/*.ipa
