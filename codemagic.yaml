@@ -81,11 +81,15 @@ workflows:
 
       - name: Build .ipa
         script: |
+          set -e
+          # Debug: show current signing settings
+          echo "=== Pre-build project signing settings ==="
+          grep -E "CODE_SIGN_STYLE|DEVELOPMENT_TEAM|PROVISIONING_PROFILE|PRODUCT_BUNDLE_IDENTIFIER|CODE_SIGN_IDENTITY" frontend/ios/App/App.xcodeproj/project.pbxproj | head -40 || true
           cd frontend/ios/App
           xcode-project build-ipa \
             --workspace "App.xcworkspace" \
             --scheme "App" \
-            --archive-flags="-allowProvisioningUpdates"
+            --archive-flags="-allowProvisioningUpdates DEVELOPMENT_TEAM=G639WJTTCZ CODE_SIGN_STYLE=Automatic"
 
     artifacts:
       - frontend/ios/App/build/ios/ipa/*.ipa
