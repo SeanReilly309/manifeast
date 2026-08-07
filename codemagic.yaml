@@ -61,8 +61,17 @@ workflows:
             --certificate-key @file:/tmp/cert_private_key.pem \
             --create
           keychain add-certificates
+          # Debug: list what was downloaded
+          echo "=== Provisioning profiles downloaded ==="
+          ls -la "$HOME/Library/MobileDevice/Provisioning Profiles/" 2>/dev/null || true
+          ls -la "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/" 2>/dev/null || true
+          # Debug: show project bundle identifiers
+          echo "=== Project bundle identifiers ==="
+          grep -R "PRODUCT_BUNDLE_IDENTIFIER" frontend/ios/App/App.xcodeproj/project.pbxproj || true
           xcode-project use-profiles \
-            --project frontend/ios/App/App.xcodeproj
+            --project frontend/ios/App/App.xcodeproj \
+            --archive-method app-store \
+            --code-signing-setup-verbose-logging
 
       - name: Build .ipa
         script: |
