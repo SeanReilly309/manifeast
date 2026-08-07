@@ -10,9 +10,9 @@ workflows:
     environment:
       ios_signing:
         distribution_type: app_store
-        bundle_identifier: com.manifeast.app
+        bundle_identifier: ie.manifeast.ios
       vars:
-        BUNDLE_ID: "com.manifeast.app"
+        BUNDLE_ID: "ie.manifeast.ios"
         XCODE_WORKSPACE: "frontend/ios/App/App.xcworkspace"
         XCODE_SCHEME: "App"
         REACT_APP_BACKEND_URL: "https://manifest.ie"
