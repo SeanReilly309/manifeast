@@ -53,7 +53,15 @@ workflows:
         script: |
           set -e
           keychain initialize
-          # Generate a fresh RSA private key for the distribution certificate
+          # Revoke any existing distribution certificates whose private key we no longer have.
+          # This clears the way for creating a fresh cert we control.
+          echo "=== Revoking orphaned distribution certificates ==="
+          CERT_IDS=$(app-store-connect certificates list --type IOS_DISTRIBUTION --json 2>/dev/null | python3 -c "import sys, json; print(' '.join([c['id'] for c in json.load(sys.stdin)]))" || echo "")
+          for cert_id in $CERT_IDS; do
+            echo "Revoking certificate $cert_id"
+            app-store-connect certificates delete "$cert_id" --ignore-not-found || true
+          done
+          # Generate a fresh RSA private key for the new distribution certificate
           openssl genrsa 2048 > /tmp/cert_private_key.pem
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --platform IOS \
@@ -61,13 +69,6 @@ workflows:
             --certificate-key @file:/tmp/cert_private_key.pem \
             --create
           keychain add-certificates
-          # Debug: list what was downloaded
-          echo "=== Provisioning profiles downloaded ==="
-          ls -la "$HOME/Library/MobileDevice/Provisioning Profiles/" 2>/dev/null || true
-          ls -la "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/" 2>/dev/null || true
-          # Debug: show project bundle identifiers
-          echo "=== Project bundle identifiers ==="
-          grep -R "PRODUCT_BUNDLE_IDENTIFIER" frontend/ios/App/App.xcodeproj/project.pbxproj || true
           xcode-project use-profiles \
             --project frontend/ios/App/App.xcodeproj \
             --archive-method app-store \
