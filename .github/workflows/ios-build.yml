@@ -51,7 +51,10 @@ jobs:
 
       - name: Install frontend deps
         working-directory: frontend
-        run: yarn install --network-timeout 300000
+        run: |
+          # yarn.lock is not always in the repo (Emergent strips it on push),
+          # so use npm install with --legacy-peer-deps for robust resolution.
+          npm install --legacy-peer-deps --no-audit --no-fund
 
       - name: Build production web bundle
         working-directory: frontend
@@ -59,7 +62,7 @@ jobs:
           # CRA treats lint warnings as errors when CI=true; explicit false so
           # a stylistic warning doesn't kill the whole iOS build.
           CI: 'false'
-        run: yarn build
+        run: npm run build
 
       - name: Add iOS platform (first-run) & sync
         working-directory: frontend
