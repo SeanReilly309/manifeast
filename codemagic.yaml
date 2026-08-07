@@ -48,11 +48,24 @@ workflows:
           cd frontend/ios/App
           /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString 1.0.0" App/Info.plist || true
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" App/Info.plist || true
-          # Force the Capacitor default project to use our team ID with automatic signing
-          # (Capacitor generates DEVELOPMENT_TEAM = ""; which breaks archive builds)
-          sed -i '' 's/DEVELOPMENT_TEAM = "";/DEVELOPMENT_TEAM = G639WJTTCZ;/g' App.xcodeproj/project.pbxproj
-          sed -i '' 's/DEVELOPMENT_TEAM = ;/DEVELOPMENT_TEAM = G639WJTTCZ;/g' App.xcodeproj/project.pbxproj
-          echo "=== After sed - signing settings in pbxproj ==="
+          # Capacitor's default pbxproj has NO DEVELOPMENT_TEAM line, which breaks
+          # App Store archive builds. Insert it right after each CODE_SIGN_STYLE line.
+          python3 <<'PY'
+          import re, pathlib
+          p = pathlib.Path("App.xcodeproj/project.pbxproj")
+          text = p.read_text()
+          # Remove any pre-existing (empty) DEVELOPMENT_TEAM lines
+          text = re.sub(r'\n\s*DEVELOPMENT_TEAM = [^;]*;', '', text)
+          # Insert DEVELOPMENT_TEAM right after each CODE_SIGN_STYLE line
+          text = re.sub(
+              r'(CODE_SIGN_STYLE = Automatic;)',
+              r'\1\n\t\t\t\tDEVELOPMENT_TEAM = G639WJTTCZ;',
+              text,
+          )
+          p.write_text(text)
+          print("Patched pbxproj with DEVELOPMENT_TEAM = G639WJTTCZ")
+          PY
+          echo "=== After patch - signing settings in pbxproj ==="
           grep -E "CODE_SIGN_STYLE|DEVELOPMENT_TEAM|PROVISIONING_PROFILE|PRODUCT_BUNDLE_IDENTIFIER" App.xcodeproj/project.pbxproj || true
 
       - name: Fetch or create signing files
