@@ -1,13 +1,10 @@
 name: iOS Build & Submit
 
-# Trigger by pushing a tag like `ios-v1.0.3` OR running manually from the
-# GitHub Actions UI. Both work from your iPhone in Safari:
-#   • Manual: repo → Actions tab → "iOS Build & Submit" → Run workflow
-#   • Tag:    create a release from the repo page with tag `ios-v...`
+# ⚠️ NOTE — This GitHub Actions workflow is deprecated in favour of Codemagic
+# (see /codemagic.yaml + /CODEMAGIC-DEPLOY.md). The GH Actions version was
+# unable to work around Apple's 401 on xcbuild/listTeams. Kept here for
+# reference but only runs when manually dispatched.
 on:
-  push:
-    tags:
-      - 'ios-v*'
   workflow_dispatch:
     inputs:
       build_number:

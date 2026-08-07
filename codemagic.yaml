@@ -1,0 +1,81 @@
+workflows:
+  ios-testflight:
+    name: iOS → TestFlight (Manifeast)
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+
+    environment:
+      groups:
+        - manifeast_env       # you'll create this in Codemagic UI (see CODEMAGIC-DEPLOY.md)
+      vars:
+        BUNDLE_ID: "com.manifeast.app"
+        XCODE_WORKSPACE: "frontend/ios/App/App.xcworkspace"
+        XCODE_SCHEME: "App"
+      node: 20
+      xcode: latest
+      cocoapods: default
+
+    integrations:
+      app_store_connect: manifeast_asc   # created in Codemagic UI
+
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+
+    scripts:
+      - name: Install web deps + build
+        script: |
+          set -e
+          cd frontend
+          npm install --legacy-peer-deps --no-audit --no-fund
+          npm install ajv@^8 --legacy-peer-deps --no-audit --no-fund
+          CI=false npm run build
+
+      - name: Add & sync Capacitor iOS
+        script: |
+          set -e
+          cd frontend
+          if [ ! -d "ios" ]; then
+            npx cap add ios
+          fi
+          npx cap sync ios
+
+      - name: Set bundle id & version
+        script: |
+          set -e
+          cd frontend/ios/App
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString 1.0.0" App/Info.plist || true
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" App/Info.plist || true
+
+      - name: Automatic code signing
+        # Codemagic reads certs & profiles from the App Store Connect integration
+        # you set up in the UI — no manual .p8 or base64 secrets needed.
+        script: |
+          keychain initialize
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create
+          keychain add-certificates
+          xcode-project use-profiles
+
+      - name: Build .ipa
+        script: |
+          cd frontend/ios/App
+          xcode-project build-ipa \
+            --workspace "App.xcworkspace" \
+            --scheme "App"
+
+    artifacts:
+      - frontend/ios/App/build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app.dSYM.zip
+
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        beta_groups:
+          - "Internal Testing"
