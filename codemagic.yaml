@@ -48,6 +48,12 @@ workflows:
           cd frontend/ios/App
           /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString 1.0.0" App/Info.plist || true
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" App/Info.plist || true
+          # Force the Capacitor default project to use our team ID with automatic signing
+          # (Capacitor generates DEVELOPMENT_TEAM = ""; which breaks archive builds)
+          sed -i '' 's/DEVELOPMENT_TEAM = "";/DEVELOPMENT_TEAM = G639WJTTCZ;/g' App.xcodeproj/project.pbxproj
+          sed -i '' 's/DEVELOPMENT_TEAM = ;/DEVELOPMENT_TEAM = G639WJTTCZ;/g' App.xcodeproj/project.pbxproj
+          echo "=== After sed - signing settings in pbxproj ==="
+          grep -E "CODE_SIGN_STYLE|DEVELOPMENT_TEAM|PROVISIONING_PROFILE|PRODUCT_BUNDLE_IDENTIFIER" App.xcodeproj/project.pbxproj || true
 
       - name: Fetch or create signing files
         script: |
