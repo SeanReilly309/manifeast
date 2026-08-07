@@ -53,9 +53,12 @@ workflows:
         script: |
           set -e
           keychain initialize
+          # Generate a fresh RSA private key for the distribution certificate
+          openssl genrsa 2048 > /tmp/cert_private_key.pem
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --platform IOS \
             --type IOS_APP_STORE \
+            --certificate-key @file:/tmp/cert_private_key.pem \
             --create
           keychain add-certificates
           xcode-project use-profiles \
