@@ -8,9 +8,6 @@ workflows:
       app_store_connect: manifeast_asc   # created in Codemagic UI
 
     environment:
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: ie.manifeast.ios
       vars:
         BUNDLE_ID: "ie.manifeast.ios"
         XCODE_WORKSPACE: "frontend/ios/App/App.xcworkspace"
@@ -51,6 +48,19 @@ workflows:
           cd frontend/ios/App
           /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString 1.0.0" App/Info.plist || true
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" App/Info.plist || true
+
+      - name: Fetch or create signing files
+        script: |
+          set -e
+          keychain initialize
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --platform IOS \
+            --type IOS_APP_STORE \
+            --create
+          keychain add-certificates
+          xcode-project use-profiles \
+            --project frontend/ios/App/App.xcodeproj \
+            --warn-only
 
       - name: Build .ipa
         script: |
