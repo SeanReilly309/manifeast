@@ -21,6 +21,11 @@ jobs:
     runs-on: macos-14  # Sonoma, ships with Xcode 15
     timeout-minutes: 60
 
+    defaults:
+      run:
+        # Ensure `set -o pipefail` so `cmd | xcpretty` doesn't hide xcodebuild errors.
+        shell: bash --noprofile --norc -eo pipefail {0}
+
     env:
       NODE_VERSION: '20'
       # These come from the repo's Actions → Secrets & variables → Actions
@@ -63,6 +68,18 @@ jobs:
             npx cap add ios
           fi
           npx cap sync ios
+
+      - name: Diagnostic — verify iOS project
+        working-directory: frontend
+        run: |
+          echo "=== ls ios/App ==="
+          ls -la ios/App || echo "MISSING: ios/App"
+          echo "=== workspace present? ==="
+          ls ios/App/App.xcworkspace || echo "MISSING: App.xcworkspace"
+          echo "=== Podfile.lock ==="
+          ls ios/App/Podfile.lock 2>/dev/null && echo "pods installed" || echo "no Podfile.lock — pods may have failed"
+          echo "=== xcodebuild schemes ==="
+          cd ios/App && xcodebuild -list -workspace App.xcworkspace || true
 
       - name: Set version & build number
         working-directory: frontend/ios/App
