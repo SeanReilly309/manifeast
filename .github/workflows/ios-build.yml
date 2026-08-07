@@ -55,6 +55,9 @@ jobs:
           # yarn.lock is not always in the repo (Emergent strips it on push),
           # so use npm install with --legacy-peer-deps for robust resolution.
           npm install --legacy-peer-deps --no-audit --no-fund
+          # Well-known CRA5 + npm hoisting bug: `ajv` transitive dep goes
+          # missing. Reinstall explicitly to fix schema-utils/ajv-keywords chain.
+          npm install ajv@^8 --legacy-peer-deps --no-audit --no-fund
 
       - name: Build production web bundle
         working-directory: frontend
