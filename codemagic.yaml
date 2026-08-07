@@ -77,17 +77,25 @@ workflows:
           set -e
           cd frontend/ios/App
           # Extract profile info from the downloaded .mobileprovision
-          PROFILE_FILE=$(ls "$HOME/Library/MobileDevice/Provisioning Profiles/"*.mobileprovision | head -1)
-          echo "Using profile: $PROFILE_FILE"
-          PROFILE_NAME=$(security cms -D -i "$PROFILE_FILE" | /usr/libexec/PlistBuddy -c "Print :Name" /dev/stdin)
-          PROFILE_UUID=$(security cms -D -i "$PROFILE_FILE" | /usr/libexec/PlistBuddy -c "Print :UUID" /dev/stdin)
-          TEAM_ID=$(security cms -D -i "$PROFILE_FILE" | /usr/libexec/PlistBuddy -c "Print :TeamIdentifier:0" /dev/stdin)
+          PROFILE_FILE=$(ls "$HOME/Library/MobileDevice/Provisioning Profiles/"*.mobileprovision 2>/dev/null | head -1)
+          if [ -z "$PROFILE_FILE" ]; then
+            PROFILE_FILE=$(ls "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/"*.mobileprovision 2>/dev/null | head -1)
+          fi
+          echo "Using profile file: $PROFILE_FILE"
+          # Decode the .mobileprovision to plain plist XML into a temp file
+          security cms -D -i "$PROFILE_FILE" -o /tmp/profile.plist
+          PROFILE_NAME=$(/usr/libexec/PlistBuddy -c "Print :Name" /tmp/profile.plist)
+          PROFILE_UUID=$(/usr/libexec/PlistBuddy -c "Print :UUID" /tmp/profile.plist)
+          TEAM_ID=$(/usr/libexec/PlistBuddy -c "Print :TeamIdentifier:0" /tmp/profile.plist)
           echo "Profile name: $PROFILE_NAME"
           echo "Profile UUID: $PROFILE_UUID"
           echo "Team ID: $TEAM_ID"
           # Patch pbxproj to use manual signing with this exact profile
-          python3 <<PY
-          import re, pathlib
+          export PROFILE_NAME PROFILE_UUID TEAM_ID
+          python3 <<'PY'
+          import os, re, pathlib
+          team = os.environ["TEAM_ID"]
+          profile_name = os.environ["PROFILE_NAME"]
           p = pathlib.Path("App.xcodeproj/project.pbxproj")
           text = p.read_text()
           # Remove any old signing settings we might duplicate
@@ -95,12 +103,12 @@ workflows:
               text = re.sub(r'\n\s*' + key + r' = [^;]*;', '', text)
           # Switch signing style to Manual
           text = re.sub(r'CODE_SIGN_STYLE = Automatic;', 'CODE_SIGN_STYLE = Manual;', text)
-          # After each CODE_SIGN_STYLE = Manual; add the required signing settings
+          # After each CODE_SIGN_STYLE = Manual; line add signing settings
           insert = (
               'CODE_SIGN_STYLE = Manual;\n'
-              '\t\t\t\tDEVELOPMENT_TEAM = "${TEAM_ID}";\n'
-              '\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "${PROFILE_NAME}";\n'
-              '\t\t\t\tCODE_SIGN_IDENTITY = "Apple Distribution";'
+              f'\t\t\t\tDEVELOPMENT_TEAM = {team};\n'
+              f'\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "{profile_name}";\n'
+              f'\t\t\t\tCODE_SIGN_IDENTITY = "Apple Distribution";'
           )
           text = text.replace('CODE_SIGN_STYLE = Manual;', insert)
           p.write_text(text)
