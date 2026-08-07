@@ -669,6 +669,115 @@ async def analyze_meal(request: Request, req: AnalyzeMealRequest):
     return analysis
 
 
+# ---------- App Store icon generator (temporary utility) ----------
+from fastapi.responses import Response as _FastAPIResponse
+from PIL import Image, ImageDraw, ImageFont
+
+
+def _draw_manifeast_icon(bg: tuple, fg: tuple, accent: tuple, plate: tuple, style: str) -> bytes:
+    """Draw a 1024x1024 App Store icon. No text, App Store safe."""
+    size = 1024
+    img = Image.new("RGB", (size, size), bg)
+    d = ImageDraw.Draw(img)
+
+    cx, cy = size // 2, size // 2
+
+    if style == "warm":
+        # Soft rounded fridge on left, plate on right
+        d.rounded_rectangle((150, 220, 460, 830), radius=60, fill=(255, 255, 255), outline=accent, width=10)
+        d.line((150, 480, 460, 480), fill=accent, width=8)
+        d.rectangle((190, 285, 260, 320), fill=accent)
+        for i, y in enumerate((360, 550, 640, 730)):
+            d.rounded_rectangle((190, y, 420, y + 40), radius=14, fill=(255, 210, 150) if i % 2 else (170, 220, 180))
+        # Plate right side
+        d.ellipse((550, 400, 900, 750), fill=plate, outline=accent, width=10)
+        d.ellipse((610, 460, 840, 690), fill=(255, 245, 220))
+        d.ellipse((650, 500, 750, 600), fill=(230, 130, 80))
+        d.ellipse((720, 550, 810, 640), fill=(140, 200, 130))
+
+    elif style == "bold":
+        # Dark bg + bright plate as focal
+        d.ellipse((190, 190, 834, 834), fill=plate, outline=accent, width=16)
+        d.ellipse((300, 300, 724, 724), fill=fg)
+        # Food splashes
+        d.ellipse((370, 420, 520, 570), fill=(255, 180, 80))
+        d.ellipse((470, 520, 610, 660), fill=(230, 90, 90))
+        d.ellipse((380, 540, 500, 660), fill=(120, 200, 140))
+        # Small fridge in corner
+        d.rounded_rectangle((760, 760, 940, 940), radius=24, fill=accent)
+        d.line((760, 850, 940, 850), fill=fg, width=6)
+
+    elif style == "playful":
+        # Chubby round fridge
+        d.ellipse((220, 200, 800, 780), fill=(255, 255, 255), outline=accent, width=14)
+        d.arc((220, 200, 800, 780), start=0, end=360, fill=accent, width=6)
+        d.line((240, 490, 780, 490), fill=accent, width=10)
+        d.ellipse((360, 340, 420, 400), fill=(255, 200, 120))  # top handle
+        # Food faces
+        d.ellipse((330, 560, 470, 700), fill=(255, 180, 90))
+        d.ellipse((550, 560, 690, 700), fill=(150, 210, 140))
+        d.ellipse((360, 605, 380, 625), fill=(30, 30, 30))
+        d.ellipse((420, 605, 440, 625), fill=(30, 30, 30))
+        d.ellipse((580, 605, 600, 625), fill=(30, 30, 30))
+        d.ellipse((640, 605, 660, 625), fill=(30, 30, 30))
+
+    elif style == "minimal":
+        # Very simple plate icon centred
+        d.ellipse((240, 240, 784, 784), fill=fg, outline=accent, width=8)
+        d.ellipse((320, 320, 704, 704), fill=plate)
+        # Fork/knife hint
+        d.rounded_rectangle((cx - 20, 380, cx + 20, 644), radius=20, fill=accent)
+        d.rounded_rectangle((cx - 24, 380, cx + 24, 440), radius=14, fill=accent)
+
+    import io
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+_ICON_PRESETS = {
+    "warm": {
+        "bg": (250, 240, 220),
+        "fg": (60, 90, 70),
+        "accent": (200, 130, 70),
+        "plate": (255, 255, 255),
+    },
+    "bold": {
+        "bg": (25, 30, 40),
+        "fg": (255, 250, 240),
+        "accent": (255, 200, 80),
+        "plate": (255, 200, 80),
+    },
+    "playful": {
+        "bg": (255, 230, 210),
+        "fg": (60, 70, 90),
+        "accent": (230, 120, 100),
+        "plate": (255, 255, 255),
+    },
+    "minimal": {
+        "bg": (245, 245, 245),
+        "fg": (255, 255, 255),
+        "accent": (40, 90, 70),
+        "plate": (240, 240, 230),
+    },
+}
+
+
+@api_router.get("/icon/{style}")
+async def app_icon(style: str):
+    if style not in _ICON_PRESETS:
+        raise HTTPException(status_code=404, detail="Unknown icon style")
+    p = _ICON_PRESETS[style]
+    png = _draw_manifeast_icon(p["bg"], p["fg"], p["accent"], p["plate"], style)
+    return _FastAPIResponse(
+        content=png,
+        media_type="image/png",
+        headers={"Content-Disposition": f'inline; filename="manifeast-icon-{style}.png"'},
+    )
+
+
+
+
 app.include_router(api_router)
 
 # App is stateless & tokenless — no cookies, no credentials to protect.
