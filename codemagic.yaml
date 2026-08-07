@@ -5,12 +5,11 @@ workflows:
     instance_type: mac_mini_m2
 
     environment:
-      groups:
-        - manifeast_env       # you'll create this in Codemagic UI (see CODEMAGIC-DEPLOY.md)
       vars:
         BUNDLE_ID: "com.manifeast.app"
         XCODE_WORKSPACE: "frontend/ios/App/App.xcworkspace"
         XCODE_SCHEME: "App"
+        REACT_APP_BACKEND_URL: "https://manifest.ie"
       node: 20
       xcode: latest
       cocoapods: default
