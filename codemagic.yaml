@@ -90,6 +90,23 @@ workflows:
           echo "Profile name: $PROFILE_NAME"
           echo "Profile UUID: $PROFILE_UUID"
           echo "Team ID: $TEAM_ID"
+          echo "=== Profile entitlements ==="
+          /usr/libexec/PlistBuddy -c "Print :Entitlements" /tmp/profile.plist || true
+          echo "=== Current App.entitlements ==="
+          cat App/App.entitlements 2>/dev/null || echo "(no entitlements file)"
+          # Reset the app entitlements to an empty dict.
+          # Capacitor's default entitlements may include capabilities not on the auto-created
+          # provisioning profile, which causes archive to fail with status 65.
+          cat > App/App.entitlements <<'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+          </dict>
+          </plist>
+          EOF
+          echo "=== Reset App.entitlements to empty ==="
+          cat App/App.entitlements
           # Patch pbxproj to use manual signing with this exact profile
           export PROFILE_NAME PROFILE_UUID TEAM_ID
           python3 <<'PY'
@@ -148,10 +165,39 @@ workflows:
         script: |
           set -e
           cd frontend/ios/App
-          xcode-project build-ipa --workspace App.xcworkspace --scheme App
+          # Run xcodebuild directly so we see the exact error (xcode-project wrapper hides details)
+          set +e
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -archivePath /tmp/App.xcarchive \
+            -destination "generic/platform=iOS" \
+            -allowProvisioningUpdates \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM="$(/usr/libexec/PlistBuddy -c 'Print :TeamIdentifier:0' /tmp/profile.plist)" \
+            PROVISIONING_PROFILE_SPECIFIER="$(/usr/libexec/PlistBuddy -c 'Print :Name' /tmp/profile.plist)" \
+            archive 2>&1 | tee /tmp/xcodebuild_archive.log
+          ARCHIVE_STATUS=${PIPESTATUS[0]}
+          set -e
+          if [ "$ARCHIVE_STATUS" != "0" ]; then
+            echo "=== ARCHIVE FAILED - error lines from xcodebuild ==="
+            grep -E "error:|Error:" /tmp/xcodebuild_archive.log | head -50 || true
+            echo "=== Last 100 lines of xcodebuild output ==="
+            tail -100 /tmp/xcodebuild_archive.log
+            exit "$ARCHIVE_STATUS"
+          fi
+          # Export the .ipa from the archive
+          mkdir -p build/ios/ipa
+          xcodebuild -exportArchive \
+            -archivePath /tmp/App.xcarchive \
+            -exportPath build/ios/ipa \
+            -exportOptionsPlist "$HOME/export_options.plist" \
+            -allowProvisioningUpdates
 
     artifacts:
       - frontend/ios/App/build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_archive.log
       - /tmp/xcodebuild_logs/*.log
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app.dSYM.zip
 
