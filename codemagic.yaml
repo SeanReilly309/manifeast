@@ -62,8 +62,7 @@ workflows:
             --create
           keychain add-certificates
           xcode-project use-profiles \
-            --project frontend/ios/App/App.xcodeproj \
-            --warn-only
+            --project frontend/ios/App/App.xcodeproj
 
       - name: Build .ipa
         script: |
