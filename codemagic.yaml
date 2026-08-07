@@ -107,8 +107,7 @@ workflows:
           insert = (
               'CODE_SIGN_STYLE = Manual;\n'
               f'\t\t\t\tDEVELOPMENT_TEAM = {team};\n'
-              f'\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "{profile_name}";\n'
-              f'\t\t\t\tCODE_SIGN_IDENTITY = "Apple Distribution";'
+              f'\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "{profile_name}";'
           )
           text = text.replace('CODE_SIGN_STYLE = Manual;', insert)
           p.write_text(text)
@@ -128,8 +127,6 @@ workflows:
             <string>${TEAM_ID}</string>
             <key>signingStyle</key>
             <string>manual</string>
-            <key>signingCertificate</key>
-            <string>Apple Distribution</string>
             <key>provisioningProfiles</key>
             <dict>
               <key>${BUNDLE_ID}</key>
