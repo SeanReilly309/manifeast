@@ -9,7 +9,7 @@ workflows:
 
     environment:
       vars:
-        BUNDLE_ID: "Ie.manifeast.ios"
+        BUNDLE_ID: "ie.manifeast.app"
         XCODE_WORKSPACE: "frontend/ios/App/App.xcworkspace"
         XCODE_SCHEME: "App"
         REACT_APP_BACKEND_URL: "https://manifest.ie"
