@@ -50,15 +50,17 @@ workflows:
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" App/Info.plist || true
 
       - name: Automatic code signing
-        # Codemagic reads certs & profiles from the App Store Connect integration
-        # you set up in the UI — no manual .p8 or base64 secrets needed.
         script: |
+          set -e
           keychain initialize
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --platform IOS \
             --type IOS_APP_STORE \
             --create
           keychain add-certificates
-          xcode-project use-profiles
+          xcode-project use-profiles \
+            --project frontend/ios/App/App.xcodeproj \
+            --warn-only
 
       - name: Build .ipa
         script: |
