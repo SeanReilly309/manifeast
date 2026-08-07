@@ -101,7 +101,16 @@ jobs:
       - name: Decode ASC API key
         run: |
           mkdir -p $RUNNER_TEMP/signing
-          echo "$APP_STORE_CONNECT_KEY_BASE64" | base64 --decode > $RUNNER_TEMP/signing/AuthKey.p8
+          # Strip any whitespace/newlines the user may have pasted in the secret
+          # (base64.guru "MIME" format wraps at 76 chars — that trips up Apple auth).
+          printf '%s' "$APP_STORE_CONNECT_KEY_BASE64" | tr -d '[:space:]' | base64 --decode > $RUNNER_TEMP/signing/AuthKey.p8
+          # Sanity check the key looks like a valid P8
+          if ! grep -q "BEGIN PRIVATE KEY" $RUNNER_TEMP/signing/AuthKey.p8; then
+            echo "❌ AuthKey.p8 doesn't look valid — check APP_STORE_CONNECT_KEY_BASE64 secret."
+            head -c 100 $RUNNER_TEMP/signing/AuthKey.p8
+            exit 1
+          fi
+          echo "✅ AuthKey.p8 looks valid"
 
       - name: Decode manual cert & profile (optional)
         if: ${{ env.IOS_CERT_P12_BASE64 != '' && env.IOS_PROVISIONING_PROFILE_BASE64 != '' }}
