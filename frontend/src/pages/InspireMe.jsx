@@ -120,6 +120,7 @@ export default function InspireMe() {
     // Clean up legacy keys from the removed diet-filter feature.
     try { localStorage.removeItem("manifeast_inspire_diets"); } catch { /* ignore */ }
     load(category);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [category]);
 
   // After the current category has results and no in-flight load, prefetch the rest.

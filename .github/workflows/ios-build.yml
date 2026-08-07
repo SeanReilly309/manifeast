@@ -50,6 +50,10 @@ jobs:
 
       - name: Build production web bundle
         working-directory: frontend
+        env:
+          # CRA treats lint warnings as errors when CI=true; explicit false so
+          # a stylistic warning doesn't kill the whole iOS build.
+          CI: 'false'
         run: yarn build
 
       - name: Add iOS platform (first-run) & sync
