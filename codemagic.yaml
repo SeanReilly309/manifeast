@@ -9,7 +9,7 @@ workflows:
 
     environment:
       vars:
-        BUNDLE_ID: "ie.manifeast.ios"
+        BUNDLE_ID: "Ie.manifeast.ios"
         XCODE_WORKSPACE: "frontend/ios/App/App.xcworkspace"
         XCODE_SCHEME: "App"
         REACT_APP_BACKEND_URL: "https://manifest.ie"
@@ -115,16 +115,17 @@ workflows:
           profile_name = os.environ["PROFILE_NAME"]
           p = pathlib.Path("App.xcodeproj/project.pbxproj")
           text = p.read_text()
-          # Remove any old signing settings we might duplicate
+          # Remove any old signing settings we might duplicate (stale team IDs, wrong identities)
           for key in ["DEVELOPMENT_TEAM", "PROVISIONING_PROFILE_SPECIFIER", "PROVISIONING_PROFILE", "CODE_SIGN_IDENTITY"]:
               text = re.sub(r'\n\s*' + key + r' = [^;]*;', '', text)
-          # Switch signing style to Manual
+          # Switch signing style to Manual for BOTH Debug and Release configs
           text = re.sub(r'CODE_SIGN_STYLE = Automatic;', 'CODE_SIGN_STYLE = Manual;', text)
           # After each CODE_SIGN_STYLE = Manual; line add signing settings
           insert = (
               'CODE_SIGN_STYLE = Manual;\n'
               f'\t\t\t\tDEVELOPMENT_TEAM = {team};\n'
-              f'\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "{profile_name}";'
+              f'\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "{profile_name}";\n'
+              f'\t\t\t\t"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Distribution";'
           )
           text = text.replace('CODE_SIGN_STYLE = Manual;', insert)
           p.write_text(text)
