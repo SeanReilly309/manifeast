@@ -84,7 +84,8 @@ workflows:
           cd frontend/ios/App
           xcode-project build-ipa \
             --workspace "App.xcworkspace" \
-            --scheme "App"
+            --scheme "App" \
+            --archive-flags="-allowProvisioningUpdates"
 
     artifacts:
       - frontend/ios/App/build/ios/ipa/*.ipa
