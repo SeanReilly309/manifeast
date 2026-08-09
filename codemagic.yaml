@@ -41,6 +41,9 @@ workflows:
             npx cap add ios
           fi
           npx cap sync ios
+          # Generate all iOS app icon sizes from resources/icon.png
+          npm install --no-save --legacy-peer-deps @capacitor/assets
+          npx @capacitor/assets generate --iconBackgroundColor "#87A186" --iconBackgroundColorDark "#87A186" --splashBackgroundColor "#87A186" --splashBackgroundColorDark "#87A186" --ios
 
       - name: Set bundle id & version
         script: |
