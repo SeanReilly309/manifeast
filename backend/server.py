@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Request
+from fastapi import FastAPI, APIRouter, HTTPException, Request, UploadFile, File
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -760,6 +760,105 @@ async def app_icon_custom(payload: dict):
         media_type="image/png",
         headers={"Content-Disposition": 'inline; filename="manifeast-icon-custom.png"'},
     )
+
+
+# ---------- App Store screenshot resizer ----------
+# Apple requires 6.9" iPhone screenshots at 1290x2796. iPhone 12 mini takes
+# screenshots at 1080x2340 (same aspect). This resizes with high-quality
+# LANCZOS and returns a PNG ready to upload to App Store Connect.
+
+
+@api_router.post("/screenshot/resize")
+async def screenshot_resize(file: UploadFile = File(...)):
+    data = await file.read()
+    if len(data) > 20 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="File too large (max 20MB)")
+    try:
+        src = _PILImage.open(_io.BytesIO(data)).convert("RGB")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Could not read image")
+    target_w, target_h = 1290, 2796
+    # Fit inside the target (letterbox if aspect differs)
+    src_ratio = src.width / src.height
+    target_ratio = target_w / target_h
+    if abs(src_ratio - target_ratio) < 0.01:
+        # Same aspect - direct resize
+        resized = src.resize((target_w, target_h), _PILImage.LANCZOS)
+    else:
+        # Pad with sampled corner color to keep aspect ratio
+        pad_color = src.getpixel((5, 5))
+        if src_ratio > target_ratio:
+            new_h = int(target_w / src_ratio)
+            fitted = src.resize((target_w, new_h), _PILImage.LANCZOS)
+            resized = _PILImage.new("RGB", (target_w, target_h), pad_color)
+            resized.paste(fitted, (0, (target_h - new_h) // 2))
+        else:
+            new_w = int(target_h * src_ratio)
+            fitted = src.resize((new_w, target_h), _PILImage.LANCZOS)
+            resized = _PILImage.new("RGB", (target_w, target_h), pad_color)
+            resized.paste(fitted, ((target_w - new_w) // 2, 0))
+    buf = _io.BytesIO()
+    resized.save(buf, format="PNG", optimize=True)
+    return _FastAPIResponse(
+        content=buf.getvalue(),
+        media_type="image/png",
+        headers={"Content-Disposition": 'attachment; filename="app-store-screenshot.png"'},
+    )
+
+
+@api_router.get("/screenshot/upload-page")
+async def screenshot_upload_page():
+    html = """
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Manifeast Screenshot Resizer</title>
+<style>
+  body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#87A186;color:#fff;margin:0;padding:24px;min-height:100vh}
+  h1{font-size:28px;margin:0 0 8px}
+  p{opacity:.9;line-height:1.4}
+  .card{background:#fff;color:#222;border-radius:16px;padding:24px;margin-top:20px;box-shadow:0 8px 32px rgba(0,0,0,.15)}
+  input[type=file]{width:100%;padding:16px;background:#f5f5f5;border:2px dashed #87A186;border-radius:12px;font-size:16px}
+  button{width:100%;background:#87A186;color:#fff;border:none;padding:16px;border-radius:12px;font-size:17px;font-weight:600;margin-top:12px}
+  button:disabled{opacity:.5}
+  .status{margin-top:16px;padding:12px;background:#f0f0f0;border-radius:8px;font-size:14px;display:none}
+  .status.show{display:block}
+  img.preview{width:100%;border-radius:12px;margin-top:12px}
+  a.dl{display:block;text-align:center;background:#333;color:#fff;padding:14px;border-radius:12px;margin-top:12px;text-decoration:none;font-weight:600}
+</style>
+</head>
+<body>
+<h1>Screenshot Resizer</h1>
+<p>Resize your iPhone 12 mini screenshots to Apple's required 1290×2796 App Store size.</p>
+<div class="card">
+  <input type="file" id="file" accept="image/*">
+  <button id="go" disabled>Resize for App Store</button>
+  <div class="status" id="status"></div>
+  <img class="preview" id="preview" style="display:none">
+  <a class="dl" id="dl" style="display:none" download="app-store-screenshot.png">Save to Photos / Files</a>
+</div>
+<script>
+const f=document.getElementById('file'),b=document.getElementById('go'),s=document.getElementById('status'),p=document.getElementById('preview'),dl=document.getElementById('dl');
+f.onchange=()=>b.disabled=!f.files.length;
+b.onclick=async()=>{
+  s.className='status show';s.textContent='Uploading & resizing…';b.disabled=true;p.style.display='none';dl.style.display='none';
+  const fd=new FormData();fd.append('file',f.files[0]);
+  try{
+    const r=await fetch('/api/screenshot/resize',{method:'POST',body:fd});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const blob=await r.blob();const url=URL.createObjectURL(blob);
+    p.src=url;p.style.display='block';dl.href=url;dl.style.display='block';
+    s.textContent='Done! Tap "Save to Photos" then long-press → Save Image.';
+  }catch(e){s.textContent='Error: '+e.message}
+  b.disabled=false;
+};
+</script>
+</body>
+</html>
+    """
+    return _FastAPIResponse(content=html, media_type="text/html")
 
 
 
