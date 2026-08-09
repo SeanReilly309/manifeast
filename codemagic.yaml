@@ -128,8 +128,10 @@ workflows:
               f'\t\t\t\t"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Distribution";'
           )
           text = text.replace('CODE_SIGN_STYLE = Manual;', insert)
+          # Bump minimum iOS version to 15.0 (Apple requirement from Spring 2027)
+          text = re.sub(r'IPHONEOS_DEPLOYMENT_TARGET = [^;]+;', 'IPHONEOS_DEPLOYMENT_TARGET = 15.0;', text)
           p.write_text(text)
-          print("Patched pbxproj with manual signing")
+          print("Patched pbxproj with manual signing + iOS 15.0 target")
           PY
           echo "=== Final signing settings in pbxproj ==="
           grep -E "CODE_SIGN_STYLE|DEVELOPMENT_TEAM|PROVISIONING_PROFILE|PRODUCT_BUNDLE_IDENTIFIER|CODE_SIGN_IDENTITY" App.xcodeproj/project.pbxproj || true
