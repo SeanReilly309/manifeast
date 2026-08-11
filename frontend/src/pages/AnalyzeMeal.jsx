@@ -1,9 +1,10 @@
 import { useRef, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { Camera, Upload, Loader2, Sparkles, RefreshCw, Share2, History } from "lucide-react";
+import { Camera, Upload, Loader2, Sparkles, RefreshCw, Share2, History, Type } from "lucide-react";
 import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
 import { toast } from "sonner";
-import { analyzeMeal } from "../lib/api";
+import { analyzeMeal, analyzeMealText } from "../lib/api";
 import { useApp } from "../context/AppContext";
 
 const PLATE_IMG =
@@ -33,8 +34,41 @@ export default function AnalyzeMeal() {
   const [preview, setPreview] = useState(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [result, setResult] = useState(null);
+  const [textDesc, setTextDesc] = useState("");
+  const [textServings, setTextServings] = useState(1);
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
+
+  const analyzeFromText = useCallback(async () => {
+    const desc = textDesc.trim();
+    if (desc.length < 3) {
+      toast.error("Please describe what you ate (at least a few words).");
+      return;
+    }
+    setPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+    setResult(null);
+    setAnalyzing(true);
+    try {
+      const data = await analyzeMealText(desc, textServings);
+      if (!data.is_food) {
+        toast.error("That doesn't look like a meal — try describing food or a drink.");
+        setResult(null);
+      } else {
+        setResult(data);
+        addMealToLog(data);
+        setTextDesc("");
+        setTextServings(1);
+        toast.success("Saved to your meal log");
+      }
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e?.message || "Analysis failed");
+    } finally {
+      setAnalyzing(false);
+    }
+  }, [textDesc, textServings, addMealToLog]);
 
   const processFile = useCallback(async (file) => {
     if (!file) return;
@@ -104,7 +138,7 @@ export default function AnalyzeMeal() {
               Snap a plate. <span className="italic text-brand-primary">Know your macros.</span>
             </h1>
             <p className="text-brand-text-soft max-w-xl">
-              Point your camera at any meal you&rsquo;re about to eat &mdash; we&rsquo;ll estimate
+              Snap a photo or type what you ate &mdash; we&rsquo;ll estimate
               calories, protein, fat and carbs in seconds.
             </p>
           </div>
@@ -187,6 +221,53 @@ export default function AnalyzeMeal() {
           >
             <Upload className="w-5 h-5 mr-2" strokeWidth={1.7} /> Upload photo
           </Button>
+
+          <div className="pt-4 border-t border-brand-line/60 space-y-3" data-testid="text-entry-section">
+            <div className="flex items-center gap-2">
+              <Type className="w-4 h-4 text-brand-primary" strokeWidth={1.7} />
+              <p className="text-xs tracking-[0.22em] uppercase font-semibold text-brand-text-soft">
+                Or type what you ate
+              </p>
+            </div>
+            <Input
+              data-testid="text-meal-input"
+              value={textDesc}
+              onChange={(e) => setTextDesc(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !analyzing && textDesc.trim().length >= 3) {
+                  analyzeFromText();
+                }
+              }}
+              placeholder="e.g. chicken caesar wrap with fries"
+              maxLength={500}
+              disabled={analyzing}
+              className="rounded-full px-5 py-6 text-base bg-white border-brand-text/15"
+            />
+            <div className="flex items-center gap-3">
+              <label className="text-xs tracking-[0.18em] uppercase text-brand-text-soft flex items-center gap-2">
+                Servings
+                <input
+                  data-testid="text-servings-input"
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={textServings}
+                  onChange={(e) => setTextServings(Math.max(1, Math.min(20, parseInt(e.target.value || "1", 10))))}
+                  disabled={analyzing}
+                  className="w-16 rounded-lg border border-brand-text/15 bg-white px-3 py-2 text-brand-text text-base text-center"
+                />
+              </label>
+              <Button
+                data-testid="text-analyze-btn"
+                disabled={analyzing || textDesc.trim().length < 3}
+                onClick={analyzeFromText}
+                className="flex-1 rounded-full py-6 text-base font-semibold bg-brand-text hover:bg-brand-text/90 text-white"
+              >
+                <Sparkles className="w-4 h-4 mr-2" strokeWidth={1.8} /> Log by text
+              </Button>
+            </div>
+          </div>
+
           <p className="text-xs text-brand-text-soft pt-1 leading-relaxed">
             Tip: shoot from above with the whole plate in frame for the best guess.
             These are AI-estimated values &mdash; not clinical measurements.

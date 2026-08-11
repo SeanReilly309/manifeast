@@ -72,6 +72,11 @@ class AnalyzeMealRequest(BaseModel):
     mime_type: Optional[str] = "image/jpeg"
 
 
+class AnalyzeMealTextRequest(BaseModel):
+    description: str
+    servings: Optional[int] = 1
+
+
 class ScanResponse(BaseModel):
     id: str
     ingredients: List[str]
@@ -656,6 +661,72 @@ async def analyze_meal(request: Request, req: AnalyzeMealRequest):
         raise
     except Exception:
         logging.exception("analyze-meal failed")
+        raise HTTPException(status_code=500, detail="Meal analysis failed")
+
+    await db.meal_analyses.insert_one(
+        {
+            "id": analysis.id,
+            "meal_name": analysis.meal_name,
+            "nutrition": analysis.nutrition.model_dump(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+    )
+    return analysis
+
+
+@api_router.post("/analyze-meal-text", response_model=MealAnalysis)
+@limiter.limit("30/hour")
+async def analyze_meal_text(request: Request, req: AnalyzeMealTextRequest):
+    text = (req.description or "").strip()
+    if len(text) < 3:
+        raise HTTPException(status_code=400, detail="Please describe what you ate")
+    if len(text) > 500:
+        raise HTTPException(status_code=400, detail="Description too long (max 500 chars)")
+    servings = max(1, min(20, int(req.servings or 1)))
+
+    system = (
+        "You are a nutrition-estimation assistant. The user will describe a meal, snack, or drink "
+        "in plain text (e.g. 'chicken caesar wrap with fries', 'two slices of pepperoni pizza', "
+        "'coffee with milk and sugar'). Estimate its nutrition realistically. "
+        "Return ONLY a JSON object with these exact fields: "
+        "is_food (boolean — false if the input is not food/drink), "
+        "meal_name (short, e.g. 'Chicken Caesar Wrap with Fries'), "
+        "description (one short sentence describing the dish), "
+        "servings (integer — use the count the user described or 1 by default), "
+        "identified_items (list of components, lowercase), "
+        "nutrition (object with calories, protein_g, fat_g, carbs_g — all integers, PER SERVING; "
+        "zeros if is_food is false), "
+        "confidence ('low', 'medium', or 'high'), "
+        "notes (brief caveats about portion assumptions; empty string if none)."
+    )
+
+    user_text = (
+        f"Meal description: {text}\n"
+        f"Servings the user specified: {servings}\n"
+        "Analyze this meal's nutrition."
+    )
+    user_msg = UserMessage(text=user_text)
+
+    try:
+        raw = await _run_chat(system, user_msg)
+        data = _extract_json(raw)
+        if not isinstance(data, dict):
+            raise ValueError("Model did not return a JSON object")
+        analysis = MealAnalysis(
+            id=str(uuid.uuid4()),
+            meal_name=str(data.get("meal_name", "Unknown")).strip() or "Unknown",
+            description=str(data.get("description", "")).strip(),
+            servings=int(data.get("servings", servings) or servings),
+            identified_items=_str_list(data.get("identified_items")),
+            nutrition=_build_nutrition(data.get("nutrition")),
+            confidence=str(data.get("confidence", "medium")).strip().lower(),
+            notes=str(data.get("notes", "")).strip(),
+            is_food=bool(data.get("is_food", True)),
+        )
+    except HTTPException:
+        raise
+    except Exception:
+        logging.exception("analyze-meal-text failed")
         raise HTTPException(status_code=500, detail="Meal analysis failed")
 
     await db.meal_analyses.insert_one(

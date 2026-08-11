@@ -34,6 +34,14 @@ export const analyzeMeal = async (imageBase64, mimeType = "image/jpeg") => {
   return data;
 };
 
+export const analyzeMealText = async (description, servings = 1) => {
+  const { data } = await client.post("/analyze-meal-text", {
+    description,
+    servings,
+  });
+  return data;
+};
+
 export const askRecipes = async (query, maxRecipes = 5) => {
   const { data } = await client.post("/ask-recipes", {
     query,
