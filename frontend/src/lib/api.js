@@ -8,6 +8,12 @@ const API_TIMEOUT_MS = 90_000; // 90s — LLM vision + recipe gen can be slow
 const client = axios.create({
   baseURL: API,
   timeout: API_TIMEOUT_MS,
+  // iOS WKWebView (Capacitor) aggressively caches API responses. Force fresh
+  // fetches every time — critical for shuffle / load-more on the native app.
+  headers: {
+    "Cache-Control": "no-cache, no-store, must-revalidate",
+    Pragma: "no-cache",
+  },
 });
 
 export const scanFridge = async (imageBase64, mimeType = "image/jpeg") => {

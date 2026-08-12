@@ -950,7 +950,7 @@ app.add_middleware(
     allow_credentials=False,
     allow_origins=_cors_origins,
     allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization"],
+    allow_headers=["Content-Type", "Authorization", "Cache-Control", "Pragma"],
 )
 
 logging.basicConfig(
