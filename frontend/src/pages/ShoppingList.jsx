@@ -1,7 +1,8 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
-import { ShoppingBasket, ExternalLink, Globe } from "lucide-react";
+import { ShoppingBasket, ExternalLink, Globe, Plus } from "lucide-react";
 import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
 import {
   Select,
   SelectContent,
@@ -75,10 +76,32 @@ export default function ShoppingList() {
     clearShopping,
     country,
     setCountry,
+    addShoppingItems,
   } = useApp();
   const remaining = shoppingList.filter((i) => !i.checked);
   const itemsToShop = remaining.map((i) => i.name);
   const retailers = getCountry(country).retailers;
+  const [manualInput, setManualInput] = useState("");
+
+  const addManual = useCallback(() => {
+    const raw = manualInput.trim();
+    if (!raw) return;
+    // Support comma-separated bulk entry: "milk, eggs, bread"
+    const parts = raw
+      .split(/[,\n]+/)
+      .map((p) => p.trim())
+      .filter(Boolean);
+    if (parts.length === 0) return;
+    const existing = new Set(shoppingList.map((i) => i.name.toLowerCase()));
+    const newOnes = parts.filter((p) => !existing.has(p.toLowerCase()));
+    addShoppingItems(parts);
+    if (newOnes.length === 0) {
+      toast.info(parts.length === 1 ? "Already on your list." : "All already on your list.");
+    } else {
+      toast.success(`Added ${newOnes.length} item${newOnes.length === 1 ? "" : "s"}`);
+    }
+    setManualInput("");
+  }, [manualInput, shoppingList, addShoppingItems]);
 
   const openBulk = useCallback(
     (retailer) => {
@@ -110,7 +133,7 @@ export default function ShoppingList() {
           </h1>
           <p className="text-brand-text-soft">
             {shoppingList.length === 0
-              ? "Empty for now — add missing ingredients from any recipe."
+              ? "Empty for now — type below or add items from any recipe."
               : `${remaining.length} item${remaining.length === 1 ? "" : "s"} to grab`}
           </p>
         </div>
@@ -147,6 +170,45 @@ export default function ShoppingList() {
       {remaining.length > 0 && (
         <RetailerBand remainingCount={remaining.length} retailers={retailers} onShop={openBulk} />
       )}
+
+      <section
+        data-testid="add-manual-section"
+        className="bg-white border border-brand-line rounded-3xl p-5 md:p-6 space-y-3"
+      >
+        <div className="flex items-center gap-2">
+          <Plus className="w-4 h-4 text-brand-primary" strokeWidth={1.8} />
+          <p className="text-xs tracking-[0.22em] uppercase font-semibold text-brand-text-soft">
+            Add your own
+          </p>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Input
+            data-testid="manual-item-input"
+            value={manualInput}
+            onChange={(e) => setManualInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                addManual();
+              }
+            }}
+            placeholder="e.g. milk, eggs, sourdough"
+            maxLength={200}
+            className="rounded-full px-5 py-6 text-base bg-white border-brand-text/15 flex-1"
+          />
+          <Button
+            data-testid="manual-add-btn"
+            onClick={addManual}
+            disabled={!manualInput.trim()}
+            className="rounded-full py-6 px-6 text-base font-semibold bg-brand-primary hover:bg-brand-primary-dark text-white shadow-[0_8px_24px_rgba(224,122,95,0.28)]"
+          >
+            <Plus className="w-4 h-4 mr-2" strokeWidth={2} /> Add
+          </Button>
+        </div>
+        <p className="text-xs text-brand-text-soft leading-relaxed">
+          Tip: separate with commas to add several at once — e.g. <em>milk, eggs, bread</em>.
+        </p>
+      </section>
 
       {shoppingList.length === 0 ? (
         <EmptyState />
