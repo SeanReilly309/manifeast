@@ -51,6 +51,18 @@ workflows:
           cd frontend/ios/App
           /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString 1.0.0" App/Info.plist || true
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" App/Info.plist || true
+          # Add iOS permission usage strings (required when the app accesses the
+          # camera or photo library — without these, iOS force-quits the app
+          # the moment the picker tries to launch).
+          /usr/libexec/PlistBuddy -c "Add :NSCameraUsageDescription string 'Manifeast uses the camera so you can snap a photo of your fridge or the meal on your plate.'" App/Info.plist 2>/dev/null || \
+            /usr/libexec/PlistBuddy -c "Set :NSCameraUsageDescription 'Manifeast uses the camera so you can snap a photo of your fridge or the meal on your plate.'" App/Info.plist
+          /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryUsageDescription string 'Manifeast reads photos from your library so you can pick an existing fridge or meal photo.'" App/Info.plist 2>/dev/null || \
+            /usr/libexec/PlistBuddy -c "Set :NSPhotoLibraryUsageDescription 'Manifeast reads photos from your library so you can pick an existing fridge or meal photo.'" App/Info.plist
+          /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryAddUsageDescription string 'Manifeast can save a copy of the photo you took to your library.'" App/Info.plist 2>/dev/null || \
+            /usr/libexec/PlistBuddy -c "Set :NSPhotoLibraryAddUsageDescription 'Manifeast can save a copy of the photo you took to your library.'" App/Info.plist
+          echo "=== Info.plist after permission patch ==="
+          /usr/libexec/PlistBuddy -c "Print :NSCameraUsageDescription" App/Info.plist
+          /usr/libexec/PlistBuddy -c "Print :NSPhotoLibraryUsageDescription" App/Info.plist
 
       - name: Fetch or create signing files
         script: |
