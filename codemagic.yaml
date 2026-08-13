@@ -145,8 +145,11 @@ workflows:
           text = text.replace('CODE_SIGN_STYLE = Manual;', insert)
           # Bump minimum iOS version to 15.0 (Apple requirement from Spring 2027)
           text = re.sub(r'IPHONEOS_DEPLOYMENT_TARGET = [^;]+;', 'IPHONEOS_DEPLOYMENT_TARGET = 15.0;', text)
+          # Restrict to iPhone-only (TARGETED_DEVICE_FAMILY = 1). Capacitor defaults
+          # to "1,2" (iPhone + iPad) which forces you to submit iPad screenshots too.
+          text = re.sub(r'TARGETED_DEVICE_FAMILY = "?[0-9,]+"?;', 'TARGETED_DEVICE_FAMILY = "1";', text)
           p.write_text(text)
-          print("Patched pbxproj with manual signing + iOS 15.0 target")
+          print("Patched pbxproj: manual signing + iOS 15.0 + iPhone-only")
           PY
           echo "=== Final signing settings in pbxproj ==="
           grep -E "CODE_SIGN_STYLE|DEVELOPMENT_TEAM|PROVISIONING_PROFILE|PRODUCT_BUNDLE_IDENTIFIER|CODE_SIGN_IDENTITY" App.xcodeproj/project.pbxproj || true
