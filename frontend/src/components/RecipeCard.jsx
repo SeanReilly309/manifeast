@@ -1,7 +1,8 @@
-import { memo } from "react";
-import { Clock, ChefHat, ArrowRight, Heart } from "lucide-react";
+import { memo, useState } from "react";
+import { Clock, ChefHat, ArrowRight, Heart, ShoppingBasket } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { recipeImage, fallbackFoodImage } from "../lib/recipeImage";
+import { ShopIngredientPicker } from "./ShopIngredientPicker";
 
 function difficultyTone(d) {
   if (d === "easy") return "bg-brand-secondary/15 text-brand-secondary-dark";
@@ -11,6 +12,7 @@ function difficultyTone(d) {
 
 function RecipeCardBase({ recipe, index, onOpen }) {
   const { isFavorite, toggleFavorite } = useApp();
+  const [shopOpen, setShopOpen] = useState(false);
   const fav = isFavorite(recipe);
   const usedAll = recipe.ingredients_used || [];
   const used = usedAll.slice(0, 4);
@@ -22,6 +24,11 @@ function RecipeCardBase({ recipe, index, onOpen }) {
   const handleFavClick = (e) => {
     e.stopPropagation();
     toggleFavorite(recipe);
+  };
+
+  const handleAddToShop = (e) => {
+    e.stopPropagation();
+    setShopOpen(true);
   };
 
   return (
@@ -63,6 +70,15 @@ function RecipeCardBase({ recipe, index, onOpen }) {
         >
           <Heart className="w-5 h-5" strokeWidth={1.8} fill={fav ? "currentColor" : "none"} />
         </button>
+        <button
+          type="button"
+          data-testid={`shop-btn-${index}`}
+          onClick={handleAddToShop}
+          aria-label="Add ingredients to shopping list"
+          className="absolute top-16 right-3 w-10 h-10 rounded-full flex items-center justify-center transition-all backdrop-blur-md bg-white/90 text-brand-text-soft hover:text-brand-secondary-dark hover:scale-105"
+        >
+          <ShoppingBasket className="w-5 h-5" strokeWidth={1.8} />
+        </button>
         <div className="absolute bottom-3 right-3 w-9 h-9 rounded-full bg-white/90 flex items-center justify-center text-lg">
           {recipe.emoji || "🍽️"}
         </div>
@@ -101,6 +117,7 @@ function RecipeCardBase({ recipe, index, onOpen }) {
           <ArrowRight className="w-4 h-4" strokeWidth={1.7} />
         </div>
       </div>
+      <ShopIngredientPicker recipe={recipe} open={shopOpen} onOpenChange={setShopOpen} />
     </article>
   );
 }
