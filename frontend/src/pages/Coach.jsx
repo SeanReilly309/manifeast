@@ -327,6 +327,27 @@ export default function Coach() {
                 <p className="text-xs text-brand-text-soft italic">
                   BMI is a rough guide only &mdash; it doesn&rsquo;t know how much muscle you carry.
                 </p>
+                <p className="text-xs text-brand-text-soft leading-relaxed pt-2 border-t border-brand-line">
+                  <strong className="font-semibold not-italic">Sources:</strong> BMI ranges from the{" "}
+                  <a
+                    href="https://www.nhlbi.nih.gov/health/educational/lose_wt/BMI/bmicalc.htm"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-brand-primary underline"
+                  >
+                    U.S. NIH / NHLBI
+                  </a>{" "}
+                  and{" "}
+                  <a
+                    href="https://www.who.int/health-topics/obesity"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-brand-primary underline"
+                  >
+                    World Health Organization
+                  </a>
+                  . Not a substitute for medical advice &mdash; talk to a clinician before changing your diet.
+                </p>
               </div>
 
               <div data-testid="coach-target-card" className="bg-brand-text text-white rounded-3xl p-6 md:p-8 space-y-5 grain relative overflow-hidden">
@@ -369,6 +390,43 @@ export default function Coach() {
                     Use this as my daily target
                   </Button>
                 </div>
+              </div>
+
+              <div className="bg-white border border-brand-line rounded-3xl p-5 space-y-2">
+                <p className="text-xs tracking-[0.22em] uppercase font-semibold text-brand-text-soft">
+                  How we calculate this
+                </p>
+                <p className="text-xs text-brand-text leading-relaxed">
+                  Your basal metabolic rate (BMR) uses the{" "}
+                  <a
+                    href="https://pubmed.ncbi.nlm.nih.gov/2305711/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-brand-primary underline"
+                  >
+                    Mifflin-St Jeor equation
+                  </a>{" "}
+                  (widely used clinical standard). Total daily energy expenditure (TDEE) applies an activity
+                  multiplier per the{" "}
+                  <a
+                    href="https://nap.nationalacademies.org/read/10490/chapter/1"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-brand-primary underline"
+                  >
+                    U.S. National Academies Dietary Reference Intakes
+                  </a>
+                  . Macro splits reflect{" "}
+                  <a
+                    href="https://www.acsm.org/all-blog-posts/certification-blog/acsm-certified-blog/2020/09/16/nutrition-cheat-sheet-fitness-professionals"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-brand-primary underline"
+                  >
+                    American College of Sports Medicine
+                  </a>{" "}
+                  guidance.
+                </p>
               </div>
 
               <p className="text-xs text-brand-text-soft italic">

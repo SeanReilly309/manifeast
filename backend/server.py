@@ -491,7 +491,10 @@ async def ask_recipes(request: Request, req: AskRecipesRequest):
     user_msg = UserMessage(text=f"Give me {n} different variations for: {q}")
     recipes: List[Recipe] = []
     try:
-        raw = await _run_chat(system, user_msg)
+        # Use the faster model + json_mode for Ask — the prompt is text-only and
+        # gpt-4o-mini is 3-4x faster than gpt-4o here, which prevents the timeout
+        # / "network error" Apple reviewers hit on iPad.
+        raw = await _run_chat(system, user_msg, model=LLM_MODEL_FAST, json_mode=True)
         data = _extract_json(raw)
         raw_recipes = data.get("recipes", []) if isinstance(data, dict) else []
         for r in raw_recipes:

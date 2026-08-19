@@ -30,13 +30,39 @@ export default function Ask() {
     const clean = (q || "").trim();
     if (!clean) return;
     setLoading(true);
+    // Recipe generation can take 30-60s on the LLM. Retry once on transient
+    // network / timeout errors so a single dropped connection doesn't fail the user.
+    const attemptOnce = () => askRecipes(clean, 4);
     try {
-      const data = await askRecipes(clean, 5);
+      let data;
+      try {
+        data = await attemptOnce();
+      } catch (err) {
+        const msg = String(err?.message || "").toLowerCase();
+        const status = err?.response?.status;
+        const isTransient =
+          !status ||
+          status === 502 ||
+          status === 503 ||
+          status === 504 ||
+          msg.includes("network") ||
+          msg.includes("timeout");
+        if (!isTransient) throw err;
+        // brief pause then retry once
+        await new Promise((r) => setTimeout(r, 800));
+        data = await attemptOnce();
+      }
       setResults(data.recipes || []);
       setLastQuery(clean);
       setRecipes(data.recipes || []);
     } catch (e) {
-      toast.error(e?.response?.data?.detail || e?.message || "Search failed");
+      const detail =
+        e?.response?.data?.detail ||
+        (e?.message?.toLowerCase().includes("network")
+          ? "Recipe generation timed out. Please try again — the AI can be slow."
+          : e?.message) ||
+        "Search failed";
+      toast.error(detail);
     } finally {
       setLoading(false);
     }
