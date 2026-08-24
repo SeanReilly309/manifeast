@@ -1,0 +1,28 @@
+{
+  "summary": "Targeted re-verification of the HIGH click-bubble bug from iteration_12 (ShopIngredientPicker clicks navigating to /recipe/:id). Mobile 390x844 on https://whatieat.preview.emergentagent.com/inspire. All 6 requested scenarios PASS: (1) shop-btn-0 opens shop-picker-dialog, URL stays /inspire; (2) tapping picker-item rows toggles selection ('Add 10' -> 'Add 9' -> back to 'Add 10') with URL unchanged; (3) 'None' chip sets 'Add 0 to shopping list' and disables the add button, 'All' restores 10, URL unchanged; (4) picker-add-btn persisted 10 items to localStorage wcie_shopping, dialog closed, URL still /inspire; (5) Escape and outside-click close the dialog with no navigation; (6) sanity - clicking the card title still navigates to /recipe/cc1246b5-.... No console errors captured during the runs. Fix (div with onClick e.stopPropagation() wrapping the picker inside the <article>) is confirmed working end-to-end.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/inspire + /recipe/:id hero image", "issues": ["Image relevance still off: 'Savory Shakshuka' rendered a photo of hands over a pomegranate/salad plate; 'Spicy Veggie Tacos' image sits on a bright blue background clashing with the warm palette. Pre-existing MEDIUM issue from iteration_12 (loremflickr source), not part of this fix."]}
+    ]
+  },
+  "test_report_links": ["/app/test_reports/iteration_13.json"],
+  "action_items": [
+    "None for the click-bubble fix — verified fixed.",
+    "Still open from iteration_12 (not retested per request scope): Array.isArray guards for ingredients_used/missing_ingredients, and off-topic loremflickr images."
+  ],
+  "critical_code_review_comments": [
+    "RecipeCard.jsx:130 wrapper div only stops onClick; consider also stopping onPointerDown/onKeyDown if future card handlers use those events, or render the picker outside the <article> for a structurally safer fix.",
+    "Note: the missing-only chip (picker-select-missing) could not be exercised — none of the 4 /inspire recipes returned missing_ingredients, so the chip is not rendered. Behaviour is identical to the other chips (same click path), so risk is negligible."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "not tested (frontend-only request)", "frontend": "100% (6/6 scenarios pass; missing-only chip N/A - no missing ingredients in dataset)"},
+  "seed_data_creation": "none (localStorage only; wcie_shopping populated with 10 shakshuka ingredients during test)",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "test_credentials": "not required (no auth)",
+  "context_for_next_testing_agent": "Click-bubble bug (iteration_12 HIGH) is FIXED and verified. /inspire prefetches other categories into localStorage key manifeast_inspire_cache — clear it for cold-load tests. Remaining open items from iteration_12: non-array ingredients_used producing single-letter chips + duplicate React key warnings, and irrelevant recipe images.",
+  "rca_of_the_issue": "Previous RCA: ShopIngredientPicker was a React child of the clickable <article>, so Radix portal clicks still bubbled up the React tree to the card's onOpen navigation. Fix wraps the picker in <div onClick={e => e.stopPropagation()}>, which halts the synthetic event before it reaches the article handler — confirmed by URL remaining /inspire across every interaction inside the dialog while the card body still navigates correctly."
+}

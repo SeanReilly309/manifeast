@@ -1,0 +1,35 @@
+{
+  "summary": "Frontend-only testing of /inspire (mobile 390x844) focused on the shuffle / load-more 'network error' fix, retry logic, and card gradients. All 4 requested primary behaviours PASS: initial load renders 4 breakfast cards; Shuffle produced a fresh set of titles in ~14s with HTTP 200 and no error toast; 'Load 4 more' appended new cards (4 -> 7 after dedupe) in ~13s with no error toast; attemptWithRetry verified via route interception (first POST /api/inspire aborted with 'failed' -> app silently issued a 2nd POST and rendered recipes, 0 toasts); warm gradient is present inline on the aspect-[5/4] container (linear-gradient(135deg, rgb(199,214,190) 0%, rgb(123,154,123) 100%)); all 5 categories (breakfast/lunch/dinner/snack/dessert) render 4 cards each (served instantly from prefetch + localStorage cache). Shop picker opens and adds items (localStorage wcie_shopping updated, toast 'Added 10 items to shopping list'). Found 3 NEW defects unrelated to the network fix, one of them HIGH: any click inside the shop picker dialog bubbles to the RecipeCard <article> onClick and navigates the user to the recipe detail page.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "RecipeCard / ShopIngredientPicker", "issue": "Tapping ANY control inside the shop picker dialog (e.g. an ingredient chip) closes the dialog and navigates to /recipe/<id>. Reproduced: open card 0 basket -> tap 'olive oil' chip -> URL became /recipe/cc1246b5-... and dialog count 0. Root cause: <ShopIngredientPicker> is rendered as a child of the <article data-testid=recipe-card-N> which has onClick={() => onOpen(recipe)}; Radix renders it in a DOM portal but React portal events still bubble up the React tree. Users cannot deselect/select items — the first tap navigates away. Affects all pages using RecipeCard (Inspire, Favorites, Ask, Results). Fix: wrap the picker (or DialogContent) in a div with onClick/onPointerDown e.stopPropagation(), or render the picker outside the article.", "selector": "[data-testid=\"shop-picker-dialog\"] button", "priority": "HIGH"},
+      {"component": "RecipeCard ingredient chips", "issue": "When the LLM returns ingredients_used as a STRING instead of an array, `usedAll.slice(0,4)` slices characters and renders single-letter chips ('b','r','e','a', '+80 more'). Observed on 'Avocado Toast with Feta' after Shuffle. This also produces the repeated React console error 'Encountered two children with the same key' (duplicate character keys). Add Array.isArray guards for ingredients_used/missing_ingredients (or normalize in the API layer).", "selector": "[data-testid=\"recipe-card-3\"] .chip-available", "priority": "MEDIUM"},
+      {"component": "recipeImage (loremflickr)", "issue": "Photos are frequently irrelevant to the recipe — e.g. 'Savory Oatmeal Bowl' rendered a photo of an animal in a forest, 'Avocado Toast with Feta' rendered a magazine on a table. Consider a curated/keyword-safe image source or always using the pexels fallback set.", "selector": "[data-testid^=\"recipe-card-\"] img", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/inspire recipe cards", "issues": ["'medium' difficulty pill uses bg-brand-accent/30 + text-brand-text over the warm gradient — low contrast while the photo has not loaded (see card 0 screenshot).", "Cards show an empty gradient block for 1-3s because the img is opacity-0 until onLoad; a subtle skeleton/emoji watermark inside the gradient would read better."]}
+    ]
+  },
+  "test_report_links": ["/app/test_reports/iteration_12.json"],
+  "action_items": [
+    "HIGH: stopPropagation on the ShopIngredientPicker dialog (or move it out of the <article>) so taps inside the picker don't navigate to the recipe detail page.",
+    "MEDIUM: Guard ingredients_used / missing_ingredients with Array.isArray in RecipeCard (fixes single-letter chips and the duplicate-React-key console errors).",
+    "MEDIUM: loremflickr returns off-topic images; consider a better image source."
+  ],
+  "critical_code_review_comments": [
+    "attemptWithRetry is correct and verified working (single retry after 1s on transient/no-status errors, non-transient rethrown).",
+    "loadMore passes an empty exclude array to inspireMeals(category, null, 4, [], true) even though it dedupes client-side — 1 of 4 returned recipes was a duplicate and silently dropped (4 -> 7 cards instead of 8). Consider sending existing titles to the backend so the user reliably gets 4 new ideas.",
+    "InspireMe `load` closes over byCategory and is in its own useCallback deps, causing the callback to be recreated on every result change; harmless today but makes the prefetch effect deps fragile.",
+    "RecipeCard key `r.id || r.title || i` is fine, but the duplicate-key console error comes from ingredient chips keyed by ingredient string — dedupe or key by index."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "not tested (frontend-only request)", "frontend": "100% of the 7 requested scenarios pass; 3 unrelated defects found (1 HIGH)"},
+  "seed_data_creation": "none (localStorage only; shopping list wcie_shopping populated during test)",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "test_credentials": "not required (no auth)",
+  "context_for_next_testing_agent": "The shuffle/load-more network-error bug appears fixed: real calls returned 200 in 13-14s and the retry path was proven with page.route abort of the first POST /api/inspire (2 POSTs, 0 error toasts). Note the page prefetches all other categories in the background and caches to localStorage key manifeast_inspire_cache, so category switches return instantly with no network calls — use a fresh context or clear that key to test cold loads. Remaining open items: shop-picker portal click bubbling (HIGH), non-array ingredients_used, irrelevant loremflickr images.",
+  "rca_of_the_issue": "Original reported bug (network error on shuffle/load-more) could not be reproduced in the browser; axios timeout is 90s and attemptWithRetry recovers from a dropped fetch — verified by aborting the first request, which resulted in a transparent second request and successful render. The new HIGH bug's RCA: ShopIngredientPicker is a React child of the clickable <article>; React portals propagate synthetic events up the React tree, so dialog clicks trigger the card's onOpen navigation."
+}

@@ -43,27 +43,56 @@ export default function InspireMe() {
   const results = byCategory[category] || [];
   const [error, setError] = useState(null);
 
+  // Recipe generation is LLM-backed and can take 20-40s. iOS Capacitor / WKWebView
+  // can drop a slow request as "network error" mid-flight. Retry once with a brief
+  // pause so a single dropped fetch doesn't fail the user.
+  const attemptWithRetry = useCallback(async (fn) => {
+    try {
+      return await fn();
+    } catch (err) {
+      const msg = String(err?.message || "").toLowerCase();
+      const status = err?.response?.status;
+      const isTransient =
+        !status ||
+        status === 502 ||
+        status === 503 ||
+        status === 504 ||
+        msg.includes("network") ||
+        msg.includes("timeout");
+      if (!isTransient) throw err;
+      await new Promise((r) => setTimeout(r, 1000));
+      return await fn();
+    }
+  }, []);
+
+  const friendlyError = (e, fallback) => {
+    const detail = e?.response?.data?.detail;
+    if (detail) return detail;
+    const msg = String(e?.message || "").toLowerCase();
+    if (msg.includes("network") || msg.includes("timeout")) {
+      return "Slow connection — the AI takes a few seconds. Please tap again.";
+    }
+    return e?.message || fallback;
+  };
+
   const load = useCallback(async (cat, { force = false } = {}) => {
     if (!force && (byCategory[cat] || []).length > 0) return;
     setLoading(true);
     setError(null);
     try {
-      const data = await inspireMeals(cat, null, 4, [], force);
+      const data = await attemptWithRetry(() => inspireMeals(cat, null, 4, [], force));
       const next = { ...byCategory, [cat]: data.recipes || [] };
       setByCategory(next);
       writeCache(next);
     } catch (e) {
       const status = e?.response?.status;
-      const msg =
-        e?.response?.data?.detail ||
-        e?.message ||
-        "Couldn't fetch ideas";
+      const msg = friendlyError(e, "Couldn't fetch ideas");
       setError({ status, msg });
       toast.error(msg);
     } finally {
       setLoading(false);
     }
-  }, [byCategory]);
+  }, [byCategory, attemptWithRetry]);
 
   // Load 4 MORE ideas and append to the current list. Bypasses cache so we
   // always get fresh ideas (deduped against what's already shown).
@@ -71,7 +100,7 @@ export default function InspireMe() {
     if (loadingMore || loading) return;
     setLoadingMore(true);
     try {
-      const data = await inspireMeals(category, null, 4, [], true);
+      const data = await attemptWithRetry(() => inspireMeals(category, null, 4, [], true));
       const fresh = data.recipes || [];
       const existingIds = new Set((byCategory[category] || []).map((r) => r.id));
       const existingTitles = new Set(
@@ -90,11 +119,11 @@ export default function InspireMe() {
         toast.info("No new ideas this time — try Shuffle instead.");
       }
     } catch (e) {
-      toast.error(e?.response?.data?.detail || e?.message || "Couldn't load more");
+      toast.error(friendlyError(e, "Couldn't load more"));
     } finally {
       setLoadingMore(false);
     }
-  }, [category, byCategory, loading, loadingMore]);
+  }, [category, byCategory, loading, loadingMore, attemptWithRetry]);
 
   // Background prefetch of the other categories after the current one loads.
   // Server-side cache means these are cheap for everyone else too.

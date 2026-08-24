@@ -127,7 +127,9 @@ function RecipeCardBase({ recipe, index, onOpen }) {
           <ArrowRight className="w-4 h-4" strokeWidth={1.7} />
         </div>
       </div>
-      <ShopIngredientPicker recipe={recipe} open={shopOpen} onOpenChange={setShopOpen} />
+      <div onClick={(e) => e.stopPropagation()}>
+        <ShopIngredientPicker recipe={recipe} open={shopOpen} onOpenChange={setShopOpen} />
+      </div>
     </article>
   );
 }
