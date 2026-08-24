@@ -1,7 +1,7 @@
 import { memo, useState } from "react";
 import { Clock, ChefHat, ArrowRight, Heart, ShoppingBasket } from "lucide-react";
 import { useApp } from "../context/AppContext";
-import { recipeImage, fallbackFoodImage } from "../lib/recipeImage";
+import { recipeImage, fallbackFoodImage, recipeGradient } from "../lib/recipeImage";
 import { ShopIngredientPicker } from "./ShopIngredientPicker";
 
 function difficultyTone(d) {
@@ -13,6 +13,7 @@ function difficultyTone(d) {
 function RecipeCardBase({ recipe, index, onOpen }) {
   const { isFavorite, toggleFavorite } = useApp();
   const [shopOpen, setShopOpen] = useState(false);
+  const [imgLoaded, setImgLoaded] = useState(false);
   const fav = isFavorite(recipe);
   const usedAll = recipe.ingredients_used || [];
   const used = usedAll.slice(0, 4);
@@ -37,12 +38,21 @@ function RecipeCardBase({ recipe, index, onOpen }) {
       onClick={() => onOpen(recipe, index)}
       className="cursor-pointer group bg-white border border-brand-line rounded-3xl overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
     >
-      <div className="relative aspect-[5/4] overflow-hidden">
+      <div
+        className="relative aspect-[5/4] overflow-hidden"
+        style={{ background: recipeGradient(recipe, index) }}
+      >
         <img
           src={recipeImage(recipe, index)}
           alt={recipe.title}
-          onError={(e) => { e.currentTarget.src = fallbackFoodImage(index); }}
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          loading={index < 2 ? "eager" : "lazy"}
+          onLoad={() => setImgLoaded(true)}
+          onError={(e) => {
+            e.currentTarget.src = fallbackFoodImage(index);
+          }}
+          className={`w-full h-full object-cover transition-all duration-500 group-hover:scale-105 ${
+            imgLoaded ? "opacity-100" : "opacity-0"
+          }`}
         />
         <div className="absolute top-3 left-3 flex gap-2">
           <span className={`px-3 py-1 rounded-full text-xs font-semibold ${difficultyTone(recipe.difficulty)}`}>
