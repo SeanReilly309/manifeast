@@ -327,27 +327,49 @@ export default function Coach() {
                 <p className="text-xs text-brand-text-soft italic">
                   BMI is a rough guide only &mdash; it doesn&rsquo;t know how much muscle you carry.
                 </p>
-                <p className="text-xs text-brand-text-soft leading-relaxed pt-2 border-t border-brand-line">
-                  <strong className="font-semibold not-italic">Sources:</strong> BMI ranges from the{" "}
-                  <a
-                    href="https://www.nhlbi.nih.gov/health/educational/lose_wt/BMI/bmicalc.htm"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-brand-primary underline"
-                  >
-                    U.S. NIH / NHLBI
-                  </a>{" "}
-                  and{" "}
-                  <a
-                    href="https://www.who.int/health-topics/obesity"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-brand-primary underline"
-                  >
-                    World Health Organization
-                  </a>
-                  . Not a substitute for medical advice &mdash; talk to a clinician before changing your diet.
-                </p>
+                <div className="pt-3 border-t border-brand-line space-y-2 bg-brand-accent/10 -mx-6 md:-mx-8 -mb-6 md:-mb-8 px-6 md:px-8 py-4 rounded-b-3xl">
+                  <p className="text-xs tracking-[0.22em] uppercase font-semibold text-brand-text">
+                    Medical sources for BMI
+                  </p>
+                  <ul className="text-sm text-brand-text space-y-1.5">
+                    <li>
+                      &bull;{" "}
+                      <a
+                        href="https://www.nhlbi.nih.gov/health/educational/lose_wt/BMI/bmicalc.htm"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-brand-primary underline font-medium"
+                      >
+                        U.S. National Institutes of Health &mdash; NHLBI BMI calculator &amp; ranges
+                      </a>
+                    </li>
+                    <li>
+                      &bull;{" "}
+                      <a
+                        href="https://www.who.int/news-room/fact-sheets/detail/obesity-and-overweight"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-brand-primary underline font-medium"
+                      >
+                        World Health Organization &mdash; Obesity and overweight fact sheet
+                      </a>
+                    </li>
+                    <li>
+                      &bull;{" "}
+                      <a
+                        href="https://www.cdc.gov/bmi/adult-calculator/index.html"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-brand-primary underline font-medium"
+                      >
+                        U.S. CDC &mdash; Adult BMI calculator &amp; classification
+                      </a>
+                    </li>
+                  </ul>
+                  <p className="text-xs text-brand-text-soft italic pt-1">
+                    BMI is not a diagnosis. Talk to a clinician for personalised medical advice.
+                  </p>
+                </div>
               </div>
 
               <div data-testid="coach-target-card" className="bg-brand-text text-white rounded-3xl p-6 md:p-8 space-y-5 grain relative overflow-hidden">
