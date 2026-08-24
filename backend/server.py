@@ -532,7 +532,7 @@ async def inspire_meals(request: Request, req: InspireRequest):
             status_code=400,
             detail=f"category must be one of {sorted(allowed)}",
         )
-    n = max(4, min(req.count, 10))
+    n = max(3, min(req.count, 10))
     force_refresh = bool(getattr(req, "refresh", False))
 
     # ---- Server-side cache (shared across all users, 30 min TTL) ----

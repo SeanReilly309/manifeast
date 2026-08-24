@@ -80,7 +80,7 @@ export default function InspireMe() {
     setLoading(true);
     setError(null);
     try {
-      const data = await attemptWithRetry(() => inspireMeals(cat, null, 4, [], force));
+      const data = await attemptWithRetry(() => inspireMeals(cat, null, 3, [], force));
       const next = { ...byCategory, [cat]: data.recipes || [] };
       setByCategory(next);
       writeCache(next);
@@ -100,7 +100,7 @@ export default function InspireMe() {
     if (loadingMore || loading) return;
     setLoadingMore(true);
     try {
-      const data = await attemptWithRetry(() => inspireMeals(category, null, 4, [], true));
+      const data = await attemptWithRetry(() => inspireMeals(category, null, 3, [], true));
       const fresh = data.recipes || [];
       const existingIds = new Set((byCategory[category] || []).map((r) => r.id));
       const existingTitles = new Set(
@@ -132,7 +132,7 @@ export default function InspireMe() {
     for (const cat of others) {
       if ((byCategory[cat] || []).length > 0) continue;
       try {
-        const data = await inspireMeals(cat, null, 4, [], false);
+        const data = await inspireMeals(cat, null, 3, [], false);
         setByCategory((prev) => {
           const next = { ...prev, [cat]: data.recipes || [] };
           writeCache(next);
@@ -294,7 +294,7 @@ export default function InspireMe() {
               ) : (
                 <Plus className="w-4 h-4 mr-2" strokeWidth={2.2} />
               )}
-              {loadingMore ? "Fetching more ideas…" : "Load 4 more ideas"}
+              {loadingMore ? "Fetching more ideas…" : "Load 3 more ideas"}
             </Button>
           </div>
         </>
