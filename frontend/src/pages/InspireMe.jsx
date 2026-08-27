@@ -38,6 +38,9 @@ export default function InspireMe() {
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [byCategory, setByCategory] = useState(() => readCache());
+  // Pre-shuffled recipes for each category. When user taps Shuffle we swap
+  // this in instantly, then start prefetching the next set in the background.
+  const [preShuffled, setPreShuffled] = useState({});
   const navigate = useNavigate();
 
   const results = byCategory[category] || [];
@@ -187,11 +190,15 @@ export default function InspireMe() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [category]);
 
-  // After the current category has results and no in-flight load, prefetch the rest.
+  // After the current category has results and no in-flight load, prefetch the rest
+  // AND pre-shuffle a fresh set for this category so the next Shuffle is instant.
   useEffect(() => {
     if (loading) return;
     if (!(byCategory[category] || []).length) return;
-    const timer = setTimeout(() => prefetchOthers(category), 400);
+    const timer = setTimeout(() => {
+      prefetchOthers(category);
+      if (!preShuffled[category]) preShuffleNext(category);
+    }, 400);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [category, loading, byCategory[category]?.length]);
@@ -201,7 +208,41 @@ export default function InspireMe() {
     navigate(`/recipe/${recipe.id}`);
   };
 
-  const shuffle = () => load(category, { force: true });
+  // Background — quietly fetch a fresh set of recipes for THIS category so the
+  // next Shuffle tap is instant.
+  const preShuffleNext = useCallback(async (cat) => {
+    try {
+      const data = await inspireMeals(cat, null, 3, [], true);
+      const fresh = data.recipes || [];
+      if (fresh.length === 0) return;
+      setPreShuffled((prev) => ({ ...prev, [cat]: fresh }));
+    } catch {
+      // Silent — best-effort.
+    }
+  }, []);
+
+  const shuffle = useCallback(() => {
+    // If we have a pre-shuffled set ready, swap it in instantly. Then kick off
+    // another background fetch so the *next* Shuffle is also instant.
+    const ready = preShuffled[category];
+    if (ready && ready.length > 0) {
+      setByCategory((prev) => {
+        const next = { ...prev, [category]: ready };
+        writeCache(next);
+        return next;
+      });
+      setPreShuffled((prev) => {
+        const next = { ...prev };
+        delete next[category];
+        return next;
+      });
+      // Fire-and-forget the next batch.
+      preShuffleNext(category);
+      return;
+    }
+    // No pre-shuffle available — fall back to the normal (visible) load.
+    load(category, { force: true });
+  }, [category, preShuffled, preShuffleNext]);
 
   return (
     <div className="space-y-8" data-testid="inspire-page">
