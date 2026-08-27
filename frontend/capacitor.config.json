@@ -6,7 +6,13 @@
   "server": {
     "androidScheme": "https",
     "iosScheme": "https",
-    "hostname": "manifeast.ie"
+    "hostname": "whatieat.emergent.host",
+    "allowNavigation": [
+      "whatieat.emergent.host",
+      "manifeast.ie",
+      "*.emergent.host",
+      "*.emergentagent.com"
+    ]
   },
   "ios": {
     "contentInset": "always",
