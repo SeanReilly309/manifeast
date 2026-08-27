@@ -35,7 +35,11 @@ db = client[os.environ["DB_NAME"]]
 
 EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
 LLM_MODEL = "gpt-4o"
-LLM_MODEL_FAST = "gpt-4o-mini"  # smaller / faster / cheaper — used by /inspire
+LLM_MODEL_FAST = "gpt-4o-mini"  # OpenAI's fast/cheap model
+# Fastest option — Google Gemini Flash. ~2x faster than gpt-4o-mini for our JSON
+# tasks. Used for user-visible latency-critical paths (Inspire, Ask).
+LLM_MODEL_FASTEST = "gemini-2.5-flash"
+LLM_PROVIDER_FASTEST = "gemini"
 LLM_PROVIDER = "openai"
 
 # Cache TTL for /inspire (server-side, shared across users) — 30 min
@@ -228,6 +232,7 @@ async def _run_chat(
     user_msg: UserMessage,
     model: str = LLM_MODEL,
     json_mode: bool = False,
+    provider: str = LLM_PROVIDER,
 ) -> str:
     if not EMERGENT_LLM_KEY:
         raise HTTPException(status_code=500, detail="EMERGENT_LLM_KEY not configured")
@@ -235,7 +240,7 @@ async def _run_chat(
         api_key=EMERGENT_LLM_KEY,
         session_id=str(uuid.uuid4()),
         system_message=system,
-    ).with_model(LLM_PROVIDER, model)
+    ).with_model(provider, model)
     if json_mode:
         chat = chat.with_params(response_format={"type": "json_object"})
 
