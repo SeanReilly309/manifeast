@@ -60,6 +60,22 @@ workflows:
             /usr/libexec/PlistBuddy -c "Set :NSPhotoLibraryUsageDescription 'Manifeast reads photos from your library so you can pick an existing fridge or meal photo.'" App/Info.plist
           /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryAddUsageDescription string 'Manifeast can save a copy of the photo you took to your library.'" App/Info.plist 2>/dev/null || \
             /usr/libexec/PlistBuddy -c "Set :NSPhotoLibraryAddUsageDescription 'Manifeast can save a copy of the photo you took to your library.'" App/Info.plist
+          # App Transport Security exceptions — allow the app to talk to our backend.
+          # Without these, iOS 14+ silently blocks XHR/fetch to non-Apple domains
+          # even when Capacitor's allowNavigation is set. Symptom is ERR_NETWORK in <500ms.
+          /usr/libexec/PlistBuddy -c "Delete :NSAppTransportSecurity" App/Info.plist 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity dict" App/Info.plist
+          /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity:NSAllowsArbitraryLoads bool true" App/Info.plist
+          /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity:NSAllowsArbitraryLoadsInWebContent bool true" App/Info.plist
+          /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity:NSExceptionDomains dict" App/Info.plist
+          for HOST in whatieat.emergent.host emergent.host emergentagent.com manifeast.ie manifest.ie; do
+            /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity:NSExceptionDomains:$HOST dict" App/Info.plist || true
+            /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity:NSExceptionDomains:$HOST:NSExceptionAllowsInsecureHTTPLoads bool false" App/Info.plist || true
+            /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity:NSExceptionDomains:$HOST:NSIncludesSubdomains bool true" App/Info.plist || true
+            /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity:NSExceptionDomains:$HOST:NSExceptionRequiresForwardSecrecy bool false" App/Info.plist || true
+          done
+          echo "=== ATS block ==="
+          /usr/libexec/PlistBuddy -c "Print :NSAppTransportSecurity" App/Info.plist || true
           echo "=== Info.plist after permission patch ==="
           /usr/libexec/PlistBuddy -c "Print :NSCameraUsageDescription" App/Info.plist
           /usr/libexec/PlistBuddy -c "Print :NSPhotoLibraryUsageDescription" App/Info.plist
