@@ -156,20 +156,27 @@ export default function InspireMe() {
   // Background prefetch of the other categories after the current one loads.
   // Server-side cache means these are cheap for everyone else too.
   const prefetchOthers = useCallback(async (activeCat) => {
-    const others = CATEGORIES.map((c) => c.id).filter((c) => c !== activeCat);
-    for (const cat of others) {
-      if ((byCategory[cat] || []).length > 0) continue;
-      try {
-        const data = await inspireMeals(cat, null, 3, [], false);
-        setByCategory((prev) => {
-          const next = { ...prev, [cat]: data.recipes || [] };
-          writeCache(next);
-          return next;
-        });
-      } catch {
-        // Silent — prefetch is best-effort.
-        break;
+    const others = CATEGORIES.map((c) => c.id).filter(
+      (c) => c !== activeCat && (byCategory[c] || []).length === 0,
+    );
+    // Fire all category prefetches in parallel — the backend caches them for 4h
+    // so subsequent tab switches are effectively instant.
+    const results = await Promise.allSettled(
+      others.map((cat) => inspireMeals(cat, null, 3, [], false).then((d) => [cat, d.recipes || []])),
+    );
+    const additions = {};
+    for (const r of results) {
+      if (r.status === "fulfilled") {
+        const [cat, recipes] = r.value;
+        additions[cat] = recipes;
       }
+    }
+    if (Object.keys(additions).length > 0) {
+      setByCategory((prev) => {
+        const next = { ...prev, ...additions };
+        writeCache(next);
+        return next;
+      });
     }
   }, [byCategory]);
 

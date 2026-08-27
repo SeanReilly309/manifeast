@@ -39,7 +39,7 @@ LLM_MODEL_FAST = "gpt-4o-mini"  # smaller / faster / cheaper — used by /inspir
 LLM_PROVIDER = "openai"
 
 # Cache TTL for /inspire (server-side, shared across users) — 30 min
-INSPIRE_CACHE_TTL_SECONDS = 30 * 60
+INSPIRE_CACHE_TTL_SECONDS = 4 * 60 * 60  # 4 hours — most users open the app more than once per session
 
 # Input size limits (defence in depth against abuse and OOM)
 MAX_IMAGE_B64_CHARS = 10_000_000       # ~7.5 MB decoded
