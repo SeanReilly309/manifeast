@@ -942,7 +942,7 @@ app.include_router(api_router)
 
 # App is stateless & tokenless — no cookies, no credentials to protect.
 # Restrict origins to prod + preview by default; overridable via CORS_ORIGINS env.
-_DEFAULT_ORIGINS = "https://manifeast.ie,https://www.manifeast.ie,https://manifest.ie,https://www.manifest.ie,https://whatieat.preview.emergentagent.com"
+_DEFAULT_ORIGINS = "https://manifeast.ie,https://www.manifeast.ie,https://manifest.ie,https://www.manifest.ie,https://whatieat.emergent.host,https://www.whatieat.emergent.host,https://whatieat.preview.emergentagent.com,capacitor://localhost,ionic://localhost"
 _raw_origins = os.environ.get("CORS_ORIGINS", _DEFAULT_ORIGINS).strip()
 if _raw_origins in ("", "*"):
     logging.warning("CORS_ORIGINS='%s' rejected — falling back to safe default allow-list.", _raw_origins)
