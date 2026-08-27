@@ -3,7 +3,7 @@ import axios from "axios";
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 export const API = `${BACKEND_URL}/api`;
 
-const API_TIMEOUT_MS = 90_000; // 90s — LLM vision + recipe gen can be slow
+const API_TIMEOUT_MS = 120_000; // 2 min — LLM vision + recipe gen can be slow on flaky iOS networks
 
 const client = axios.create({
   baseURL: API,

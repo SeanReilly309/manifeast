@@ -60,7 +60,7 @@ export default function InspireMe() {
         msg.includes("network") ||
         msg.includes("timeout");
       if (!isTransient) throw err;
-      await new Promise((r) => setTimeout(r, 1000));
+      await new Promise((r) => setTimeout(r, 2500));
       return await fn();
     }
   }, []);
