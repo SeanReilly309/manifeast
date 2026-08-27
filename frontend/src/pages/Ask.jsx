@@ -30,9 +30,9 @@ export default function Ask() {
     const clean = (q || "").trim();
     if (!clean) return;
     setLoading(true);
-    // Recipe generation can take 30-60s on the LLM. Retry once on transient
+    // Recipe generation can take 15-30s on the LLM. Retry once on transient
     // network / timeout errors so a single dropped connection doesn't fail the user.
-    const attemptOnce = () => askRecipes(clean, 4);
+    const attemptOnce = () => askRecipes(clean, 3);
     try {
       let data;
       try {

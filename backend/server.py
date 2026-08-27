@@ -463,7 +463,8 @@ async def ask_recipes(request: Request, req: AskRecipesRequest):
     q = _validate_text(req.query or "", MAX_QUERY_CHARS, "query")
     if not q:
         raise HTTPException(status_code=400, detail="query is required")
-    n = max(3, min(req.max_recipes, 6))
+    n = max(3, min(req.max_recipes, 5))
+    # Ask is a live user interaction — cap at 3 for speed (LLM is slow with more).
 
     system = (
         "You are a friendly recipe assistant. The user will tell you a dish, cuisine, or "
