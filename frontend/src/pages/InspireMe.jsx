@@ -43,15 +43,28 @@ export default function InspireMe() {
   const results = byCategory[category] || [];
   const [error, setError] = useState(null);
 
+  const [debugLog, setDebugLog] = useState([]);
+
   // Recipe generation is LLM-backed and can take 20-40s. iOS Capacitor / WKWebView
   // can drop a slow request as "network error" mid-flight. Retry once with a brief
   // pause so a single dropped fetch doesn't fail the user.
   const attemptWithRetry = useCallback(async (fn) => {
+    const start = Date.now();
     try {
-      return await fn();
+      const r = await fn();
+      setDebugLog((prev) => [
+        `[${new Date().toLocaleTimeString()}] OK in ${Date.now() - start}ms`,
+        ...prev,
+      ].slice(0, 8));
+      return r;
     } catch (err) {
       const msg = String(err?.message || "").toLowerCase();
       const status = err?.response?.status;
+      const errText = `${status || "no-status"} · ${err?.message || "?"} · code=${err?.code || "?"}`;
+      setDebugLog((prev) => [
+        `[${new Date().toLocaleTimeString()}] 1st fail (${Date.now() - start}ms): ${errText}`,
+        ...prev,
+      ].slice(0, 8));
       const isTransient =
         !status ||
         status === 502 ||
@@ -61,7 +74,22 @@ export default function InspireMe() {
         msg.includes("timeout");
       if (!isTransient) throw err;
       await new Promise((r) => setTimeout(r, 2500));
-      return await fn();
+      const retryStart = Date.now();
+      try {
+        const r = await fn();
+        setDebugLog((prev) => [
+          `[${new Date().toLocaleTimeString()}] retry OK in ${Date.now() - retryStart}ms`,
+          ...prev,
+        ].slice(0, 8));
+        return r;
+      } catch (err2) {
+        const errText2 = `${err2?.response?.status || "no-status"} · ${err2?.message || "?"} · code=${err2?.code || "?"}`;
+        setDebugLog((prev) => [
+          `[${new Date().toLocaleTimeString()}] retry fail (${Date.now() - retryStart}ms): ${errText2}`,
+          ...prev,
+        ].slice(0, 8));
+        throw err2;
+      }
     }
   }, []);
 
@@ -263,6 +291,17 @@ export default function InspireMe() {
             <RefreshCw className="w-4 h-4 mr-2" strokeWidth={1.7} />
             Try again
           </Button>
+          {debugLog.length > 0 && (
+            <div className="mt-4 text-left bg-black/90 text-green-400 rounded-2xl p-4 text-[10px] font-mono leading-relaxed whitespace-pre-wrap break-all">
+              <p className="text-white/60 mb-1">DEBUG (screenshot this for the dev):</p>
+              {debugLog.map((line, i) => (
+                <div key={i}>{line}</div>
+              ))}
+              <p className="text-white/60 mt-2">
+                API: {process.env.REACT_APP_BACKEND_URL || "(unset)"}
+              </p>
+            </div>
+          )}
         </div>
       )}
 
