@@ -49,6 +49,10 @@ Take a photo of fridge/cupboard → app tells you 3–5 meal ideas, difficulty, 
 - **Recipe scale toggle (½× / 1× / 2×)** on RecipeDetail: client-side `scaleQuantity` helper parses free-form quantity strings and rescales, snapping to clean fractions. Auto-pluralizes/depluralizes english measurement units. Also scales the yield pill and servings.
 - **Security hardening** (per audit): (a) `slowapi` per-IP rate limits — 30/hr on image endpoints (`/scan`, `/analyze-meal`), 60/hr on text endpoints (`/suggest`, `/ask-recipes`, `/inspire`); (b) input size caps — image ≤ 10 MB base64, query ≤ 500 chars, ingredients ≤ 60 items × 80 chars; (c) generic error responses (no more stack/model internals leaking); (d) CORS locked down to `manifest.ie` + preview only, `allow_credentials=false`, methods restricted to GET/POST/OPTIONS + defensive guard against wildcard `.env`; (e) `.env` variants added to `.gitignore`; (f) removed unused security deps `python-jose`, `passlib`, `bcrypt`, `pyjwt`.
 
+### Feb 27, 2026
+- **Inspire → Cook Mode instruction bug FIXED** (RCA in iteration_14): gpt-4o-mini often returned instructions as an array of objects (`[{"step":1,"instruction":"..."}]`) instead of strings; `_build_recipe` filtered non-strings out → `instructions=[]` → 500 "No recipes returned" on ~67% of fresh Inspire calls. Added `_build_instructions()` normalizer in `server.py` that accepts str/dict (`step|text|instruction|description|content`) and strips leading numbering (`1.`, `Step 1:`, `3)`). `/api/inspire` now retries once before raising 500. Fix verified: diag fail rate 0/6 (was 4/6), pytest 28/28 (was 6/13), E2E 5/5 categories reach Cook Mode with valid numbered steps.
+- Fixed React duplicate-key warning on RecipeCard ingredient chips (`key={\`${ing}-${i}\`}`).
+
 ## P1 Backlog
 - Weight-tracking chart on Coach page
 - Save "Ask" results in bulk to Favorites

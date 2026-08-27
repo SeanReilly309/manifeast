@@ -1,0 +1,41 @@
+{
+  "summary": "Retest of the /api/inspire -> Cook Mode fix (_build_instructions normalization + single LLM retry). VERIFIED FIXED. Cleared db.inspire_cache, then ran 5 forced-refresh (refresh=true) calls (one per category) plus cached second calls: new suite /app/backend/tests/test_inspire_refresh_all.py = 15/15 PASS (no 500s, every recipe >=3 steps, no leftover '1.'/'Step 1:' numbering, cached responses keep instructions, no _id leak). Existing regression suite test_inspire_instructions.py = 13/13 PASS (was 6/13). diag_inspire_failrate.py = FAIL RATE 0/6 (was 4/6). Frontend E2E on mobile 390x844: all 5 tabs (breakfast, lunch, dinner, snack, dessert) loaded a grid, first card -> Start Cooking opened [data-testid=cook-mode] with numbered steps and NO [data-testid=cook-missing] in any category. Shuffle on breakfast refreshed the list (first card changed) with no error card/toast, and Start Cooking still worked on the new recipe; step navigation (cook-next-btn) advanced correctly. Zero React duplicate-key warnings and zero console errors on the inspire render.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/inspire", "issue": "Retry is best-effort only: if both LLM attempts return zero parseable recipes the endpoint still 500s 'No recipes returned'. Not reproduced in this run (0/6 + 5/5 fresh calls all 200), but there is still no cached/static fallback for a whole-category outage. Low risk, monitor."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Inspire Me grid (RecipeCard image)", "issues": ["Recipe photos come from loremflickr keyword search and are frequently only loosely relevant — e.g. the 'Shakshuka' card rendered a photo of a chef eating rather than the dish. Cosmetic/content-quality only; images do load (naturalWidth=940, opacity 1)."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_inspire_refresh_all.py",
+    "/app/backend/tests/test_inspire_instructions.py",
+    "/app/backend/tests/diag_inspire_failrate.py",
+    "/app/test_reports/pytest/inspire_refresh_all.xml",
+    "/app/test_reports/pytest/inspire_instructions.xml"
+  ],
+  "action_items": [
+    "No blocking action required for the inspire/Cook Mode fix — it is verified across backend and frontend.",
+    "Optional: consider serving the last good cached batch (even if stale) instead of 500 when both LLM attempts fail.",
+    "Optional: improve recipe image relevance (image_query -> better photo source) — loremflickr results are often off-topic."
+  ],
+  "critical_code_review_comments": [
+    "server.py:360 _build_instructions() correctly handles str/dict/other and strips leading numbering — good RCA fix; the same helper should ideally be reused for any other list-of-objects fields the model can emit (already applied via _build_recipe, used by /suggest and /ask-recipes too).",
+    "server.py is now 1019 lines — still worth splitting the LLM prompt/parsing helpers into a separate module.",
+    "/api/inspire retry doubles worst-case latency (two sequential LLM calls, up to ~60s); consider a lower per-call timeout so the endpoint cannot exceed the frontend fetch timeout."
+  ],
+  "updated_files": ["/app/backend/tests/test_inspire_refresh_all.py"],
+  "success_rate": {"backend": "100% (28/28 pytest cases across the two inspire suites; diag fail rate 0/6)", "frontend": "100% (5/5 categories reached Cook Mode; shuffle + step nav OK)"},
+  "seed_data_creation": "Cleared db.inspire_cache before testing; fresh LLM calls repopulated all 5 categories with valid instructions.",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "test_credentials": "N/A - app is fully public, no auth",
+  "context_for_next_testing_agent": "Inspire instructions bug is CLOSED. Regression suites: /app/backend/tests/test_inspire_refresh_all.py (5 forced-refresh LLM calls, ~2 min, clears nothing — clear db.inspire_cache first for a truly cold run) and /app/backend/tests/test_inspire_instructions.py (uses cache, ~22s). diag_inspire_failrate.py measures the 500 rate over 6 fresh calls (~4 min). Frontend E2E flow: /inspire -> [data-testid=inspire-tab-<cat>] -> wait inspire-grid|inspire-error -> recipe-card-0 -> start-cook-mode-btn -> assert cook-mode and not cook-missing. Untested this iteration: /api/suggest, /ask-recipes, /analyze-meal, scan flows, favorites/shopping list (covered by older iterations' test files).",
+  "rca_of_the_issue": "Original RCA (iteration 14): gpt-4o-mini non-deterministically returns instructions as a list of dicts; _build_recipe filtered to strings only -> instructions=[] -> the guard dropped all recipes -> 500. Fix validated: _build_instructions() normalizes str/dict/scalar items and strips leading step numbering, plus /api/inspire retries once. Measured post-fix failure rate 0/6 fresh calls and 0/5 categories failing in E2E."
+}

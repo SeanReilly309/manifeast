@@ -354,6 +354,39 @@ def _build_nutrition(raw: dict) -> "Nutrition":
     )
 
 
+_LEADING_STEP_RE = re.compile(r"^\s*(?:step\s*)?\d+\s*[\.\):\-]\s*", re.IGNORECASE)
+
+
+def _build_instructions(raw) -> List[str]:
+    """Normalize an ``instructions`` value from the LLM into a clean list of
+    strings. The model sometimes emits objects like ``{"step": "..."}`` or
+    prefixes each step with ``1.``/``Step 1:`` — we accept both and strip
+    the leading numbering so CookMode's own ``Step 01`` label doesn't double up.
+    """
+    if not isinstance(raw, list):
+        return []
+    out: List[str] = []
+    for item in raw:
+        text = ""
+        if isinstance(item, str):
+            text = item
+        elif isinstance(item, dict):
+            for key in ("step", "text", "instruction", "description", "content"):
+                v = item.get(key)
+                if isinstance(v, str) and v.strip():
+                    text = v
+                    break
+            if not text:
+                # Fallback: join any string values in the dict
+                text = " ".join(str(v) for v in item.values() if isinstance(v, (str, int, float)))
+        elif item is not None:
+            text = str(item)
+        text = _LEADING_STEP_RE.sub("", text or "").strip()
+        if text:
+            out.append(text)
+    return out
+
+
 def _build_ingredients_detailed(raw) -> List["IngredientDetail"]:
     out: List[IngredientDetail] = []
     if not isinstance(raw, list):
@@ -388,7 +421,7 @@ def _build_recipe(r: dict) -> Optional["Recipe"]:
             ingredients_used=_str_list(r.get("ingredients_used")),
             missing_ingredients=_str_list(r.get("missing_ingredients")),
             ingredients_detailed=_build_ingredients_detailed(r.get("ingredients_detailed")),
-            instructions=[str(x) for x in r.get("instructions", []) if isinstance(x, str)],
+            instructions=_build_instructions(r.get("instructions")),
             servings=max(1, _coerce_int(r.get("servings"), 1)),
             yield_text=str(r.get("yield_text", "")).strip(),
             nutrition=_build_nutrition(r.get("nutrition")),
@@ -569,7 +602,7 @@ async def inspire_meals(request: Request, req: InspireRequest):
         "ingredients_detailed (REQUIRED — array of objects like "
         '{"name": "rolled oats", "quantity": "1/2 cup (50g)"} covering every ingredient '
         "with realistic measured amounts), "
-        "instructions (3-6 concise numbered steps that reference the quantities), "
+        "instructions (REQUIRED — 3-6 concise numbered steps that reference the quantities; NEVER return empty), "
         "servings (int, default 2), "
         'yield_text (REQUIRED short human-readable output like "Serves 2", '
         '"Makes 12 pancakes", "1 bowl"), '
@@ -582,15 +615,26 @@ async def inspire_meals(request: Request, req: InspireRequest):
         text=f"Give me {n} varied {category} ideas I could make today."
     )
 
-    recipes: List[Recipe] = []
-    try:
+    async def _fetch_once() -> List[Recipe]:
+        built_recipes: List[Recipe] = []
         raw = await _run_chat(system, user_msg, model=LLM_MODEL_FAST, json_mode=True)
         data = _extract_json(raw)
         raw_recipes = data.get("recipes", []) if isinstance(data, dict) else []
         for r in raw_recipes:
             built = _build_recipe(r)
-            if built is not None:
-                recipes.append(built)
+            # Drop recipes without cooking instructions — they'll break CookMode.
+            if built is not None and len(built.instructions) > 0:
+                built_recipes.append(built)
+        return built_recipes
+
+    recipes: List[Recipe] = []
+    try:
+        recipes = await _fetch_once()
+        if not recipes:
+            # LLM sometimes emits malformed instructions for a whole batch —
+            # retry once before giving up on the category.
+            logging.warning("inspire %s: empty after parse, retrying once", category)
+            recipes = await _fetch_once()
     except HTTPException:
         raise
     except Exception:

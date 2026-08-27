@@ -108,8 +108,8 @@ function RecipeCardBase({ recipe, index, onOpen }) {
           </div>
         )}
         <div className="flex flex-wrap gap-1.5 pt-1">
-          {used.map((ing) => (
-            <span key={ing} className="chip-available !py-1 !px-2.5 !text-xs">{ing}</span>
+          {used.map((ing, i) => (
+            <span key={`${ing}-${i}`} className="chip-available !py-1 !px-2.5 !text-xs">{ing}</span>
           ))}
           {usedExtra > 0 && (
             <span className="chip-missing !py-1 !px-2.5 !text-xs">+{usedExtra} more</span>

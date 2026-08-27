@@ -1,0 +1,56 @@
+{
+  "summary": "Validated the 'missing instructions in Cook Mode' fix for /api/inspire. The fix is INCOMPLETE and has introduced a worse regression: the new filter that drops recipes without instructions now drops ALL recipes on ~2 out of 3 fresh LLM calls, so /api/inspire returns HTTP 500 {'detail':'No recipes returned'} and the Inspire Me page shows 'Couldn't fetch ideas.' for those categories. RCA identified: gpt-4o-mini frequently returns `instructions` as an array of OBJECTS (e.g. [{\"step\": \"Heat oil...\"}, ...]) instead of an array of strings; `_build_recipe` (server.py:391) keeps only `isinstance(x, str)` items, so instructions becomes [] for every recipe and the new filter discards them all. Backend pytest: 6/13 passed. Frontend: Cook Mode opens correctly ONLY for categories whose cache happens to hold a good response (breakfast, dinner during the run); lunch/snack/dessert failed at the fetch stage.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "POST /api/inspire", "issue": "500 'No recipes returned' on ~67% of fresh (cache-miss / refresh=true) calls. Measured 4/6 failures across categories (breakfast, lunch, dessert, snack failed; dinner + a breakfast retry passed). Root cause: LLM returns instructions as list of dicts [{'step': '...'}]; _build_recipe (server.py:391) filters to strings only -> instructions=[] -> new filter at line 593 drops every recipe -> `if not recipes: 500`. Fix = normalize instruction items (accept dict keys step/text/instruction/description, coerce non-strings) instead of discarding, and optionally retry once before 500.", "priority": "CRITICAL"},
+      {"endpoint": "POST /api/inspire (categories lunch, snack, dessert)", "issue": "During the pytest run these three categories returned 500, so the Inspire Me tabs for them are unusable until a lucky cache fill.", "priority": "CRITICAL"}
+    ],
+    "minor": [
+      {"endpoint": "POST /suggest and /ask-recipes", "issue": "Same _build_recipe normalization gap applies (no instruction filter there), so those flows can still silently produce recipes with empty instructions -> Cook Mode 'No recipe to cook.' The fix must be in _build_recipe, not only in /inspire."},
+      {"endpoint": "POST /api/inspire", "issue": "Instruction formatting is inconsistent between cached responses: breakfast steps are prefixed with '1. ', '2. ' while dinner steps are not, and CookMode also renders its own 'Step 01' heading -> duplicated numbering. Recommend stripping any leading 'N.' from steps server-side."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "InspireMe / RecipeCard", "issue": "React warning 'Encountered two children with the same key' logged 4x on the Inspire/detail render — non-unique keys (likely ingredient chips or step list using value as key).", "selector": "[data-testid=\"inspire-grid\"]", "priority": "LOW"}
+    ],
+    "integration_issues": [
+      {"flow": "Inspire Me -> tab select (lunch/snack/dessert)", "issue": "Backend 500 surfaces as 'Couldn't fetch ideas. / No recipes returned' error card + toast; '0 dessert ideas' count shown. Blocks reaching Cook Mode entirely.", "affected_selectors": ["[data-testid=\"inspire-error\"]", "[data-testid=\"inspire-tab-dessert\"]"]},
+      {"flow": "Inspire Me -> Shuffle", "issue": "When the refresh call 500s, only a small toast appears; the grid silently keeps the OLD recipe list (first card unchanged), so the user thinks shuffle did nothing. No inline error/retry in this path.", "affected_selectors": ["[data-testid=\"inspire-shuffle-btn\"]", "[data-testid=\"inspire-grid\"]"]},
+      {"flow": "Inspire -> recipe card -> Start Cooking (breakfast, dinner)", "issue": "WORKS: Cook Mode opened with 6 and 5 numbered steps respectively, no 'cook-missing' screen. So the CookMode consumer side is fine when data is valid.", "affected_selectors": ["[data-testid=\"start-cook-mode-btn\"]", "[data-testid=\"cook-mode\"]", "[data-testid=\"cook-step-text\"]"]}
+    ],
+    "design_issues": [
+      {"screen": "Cook Mode", "issues": ["Step text renders in a very light/low-contrast tone during the fade-up animation; verify final contrast of [data-testid=\"cook-step-text\"] against brand-bg meets WCAG AA."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_inspire_instructions.py",
+    "/app/backend/tests/diag_inspire_raw.py",
+    "/app/backend/tests/diag_inspire_failrate.py",
+    "/app/test_reports/pytest/inspire_instructions.xml"
+  ],
+  "action_items": [
+    "CRITICAL: In /app/backend/server.py `_build_recipe` (line ~391) normalize instructions instead of dropping non-strings: for each item, if str use it; if dict pull step/text/instruction/description; else str(item). Strip leading 'N.'/'N)' numbering. Apply the same normalization to ingredients/other list fields where the model may return objects.",
+    "CRITICAL: Do not return 500 when the filter empties the list — retry the LLM call once (or fall back to raw parsed recipes) before raising, so /api/inspire never hard-fails a whole category.",
+    "Clear the inspire_cache again after the fix so all 5 categories are re-fetched and validated.",
+    "Fix the duplicate React key warning on the Inspire/recipe render.",
+    "Show the inline error card (not just a toast) when Shuffle fails, or keep old data with an explicit 'Shuffle failed, showing previous ideas' message."
+  ],
+  "critical_code_review_comments": [
+    "server.py:391 — `instructions=[str(x) for x in r.get('instructions', []) if isinstance(x, str)]` silently discards valid LLM data whenever the model emits objects; this is the single root cause of both the original empty-instructions bug and the new 500s.",
+    "server.py:593 — filtering recipes out is a band-aid over a parsing bug; combined with `if not recipes: raise 500` it converts a soft data-quality issue into a full endpoint outage.",
+    "server.py is 976 lines — consider splitting LLM prompt/parsing helpers into a separate module."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_inspire_instructions.py",
+    "/app/backend/tests/diag_inspire_raw.py",
+    "/app/backend/tests/diag_inspire_failrate.py"
+  ],
+  "success_rate": {"backend": "46% (6/13 pytest cases)", "frontend": "40% (2/5 categories reached Cook Mode successfully)"},
+  "seed_data_creation": "None. Fresh LLM calls populated the MongoDB inspire_cache for breakfast/dinner (and snack later); lunch/dessert remain unpopulated due to 500s.",
+  "should_call_test_agent_after_fix": true,
+  "should_main_agent_self_test": false,
+  "test_credentials": "N/A - app is fully public, no auth",
+  "context_for_next_testing_agent": "Run `python /app/backend/tests/diag_inspire_raw.py <category> 8` to see the raw LLM JSON and per-recipe instruction shape (it prints raw_instr type/len vs built len) — this is how the dict-vs-string RCA was found. `python /app/backend/tests/diag_inspire_failrate.py` measures the 500 rate across 6 fresh refresh=true calls (~4-5 min). Pytest regression suite: /app/backend/tests/test_inspire_instructions.py (module-scoped fixture fetches all 5 categories once, ~2 min). Frontend flow to re-verify: goto /inspire -> click [data-testid=inspire-tab-<cat>] -> wait for inspire-grid OR inspire-error -> click recipe-card-0 -> start-cook-mode-btn -> assert [data-testid=cook-mode] and NOT [data-testid=cook-missing]. Note results are cache-dependent (4h TTL keyed by category), so clear db.inspire_cache before a clean run.",
+  "rca_of_the_issue": "gpt-4o-mini non-deterministically returns `instructions` as an array of objects, e.g. [{\"step\": \"Bring water to a boil...\"}, ...], instead of an array of strings. `_build_recipe` keeps only string items, so instructions becomes [] for EVERY recipe in that response. The new guard at server.py:593 then drops all recipes and the endpoint raises 500 'No recipes returned'. Reproduction: POST /api/inspire {category:'lunch', refresh:true} — fails ~2/3 of the time; diag_inspire_raw.py lunch 8 printed 8 recipes each with raw_instr=list:5 but built=0. Mitigation: normalize instruction items in _build_recipe (accept dicts / coerce to str) and retry once before returning 500."
+}
