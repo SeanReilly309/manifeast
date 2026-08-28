@@ -622,8 +622,14 @@ async def inspire_meals(request: Request, req: InspireRequest):
         raw_recipes = data.get("recipes", []) if isinstance(data, dict) else []
         for r in raw_recipes:
             built = _build_recipe(r)
-            # Drop recipes without cooking instructions — they'll break CookMode.
-            if built is not None and len(built.instructions) > 0:
+            # Only surface recipes the user can actually cook: must have both
+            # numbered steps AND a measured ingredient list, otherwise the
+            # card would open into an empty CookMode / RecipeDetail.
+            if (
+                built is not None
+                and len(built.instructions) >= 2
+                and len(built.ingredients_detailed) >= 2
+            ):
                 built_recipes.append(built)
         return built_recipes
 
