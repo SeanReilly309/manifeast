@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2, RefreshCw, Plus, Sun, Sandwich, UtensilsCrossed, Cookie, Apple } from "lucide-react";
+import { Loader2, RefreshCw, Sun, Sandwich, UtensilsCrossed, Cookie, Apple } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { toast } from "sonner";
 import { RecipeCard } from "../components/RecipeCard";
@@ -15,6 +15,13 @@ const CATEGORIES = [
   { id: "snack", label: "Snacks", icon: Apple },
   { id: "dessert", label: "Desserts", icon: Cookie },
 ];
+
+// A single tab loads a POOL of recipes once; the Shuffle button rotates
+// through this pool in windows of PAGE_SIZE (0ms, no network). Once we've
+// cycled through the whole pool, we silently refill it in the background so
+// the next full cycle also feels instant.
+const POOL_SIZE = 12;
+const PAGE_SIZE = 3;
 
 const LS_INSPIRE_CACHE = "manifeast_inspire_cache";
 
@@ -36,14 +43,26 @@ export default function InspireMe() {
   const { setRecipes } = useApp();
   const [category, setCategory] = useState("breakfast");
   const [loading, setLoading] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
+  const [refilling, setRefilling] = useState(false);
   const [byCategory, setByCategory] = useState(() => readCache());
-  // Pre-shuffled recipes for each category. When user taps Shuffle we swap
-  // this in instantly, then start prefetching the next set in the background.
-  const [preShuffled, setPreShuffled] = useState({});
+  // Per-category cursor into the pool. Shuffle advances by PAGE_SIZE (wraps).
+  const [cursors, setCursors] = useState({});
   const navigate = useNavigate();
 
-  const results = byCategory[category] || [];
+  const pool = useMemo(() => byCategory[category] || [], [byCategory, category]);
+  const cursor = cursors[category] || 0;
+
+  // The window of PAGE_SIZE cards currently shown from the pool. If the pool
+  // is smaller than PAGE_SIZE we just show whatever we have.
+  const results = useMemo(() => {
+    if (pool.length === 0) return [];
+    if (pool.length <= PAGE_SIZE) return pool;
+    return Array.from(
+      { length: PAGE_SIZE },
+      (_, i) => pool[(cursor + i) % pool.length],
+    );
+  }, [pool, cursor]);
+
   const [error, setError] = useState(null);
 
   const [debugLog, setDebugLog] = useState([]);
@@ -107,14 +126,15 @@ export default function InspireMe() {
   };
 
   const load = useCallback(async (cat, { force = false } = {}) => {
-    if (!force && (byCategory[cat] || []).length > 0) return;
+    if (!force && (byCategory[cat] || []).length >= PAGE_SIZE) return;
     setLoading(true);
     setError(null);
     try {
-      const data = await attemptWithRetry(() => inspireMeals(cat, null, 3, [], force));
+      const data = await attemptWithRetry(() => inspireMeals(cat, null, POOL_SIZE, [], force));
       const next = { ...byCategory, [cat]: data.recipes || [] };
       setByCategory(next);
       writeCache(next);
+      setCursors((prev) => ({ ...prev, [cat]: 0 }));
     } catch (e) {
       const status = e?.response?.status;
       const msg = friendlyError(e, "Couldn't fetch ideas");
@@ -125,36 +145,33 @@ export default function InspireMe() {
     }
   }, [byCategory, attemptWithRetry]);
 
-  // Load 4 MORE ideas and append to the current list. Bypasses cache so we
-  // always get fresh ideas (deduped against what's already shown).
-  const loadMore = useCallback(async () => {
-    if (loadingMore || loading) return;
-    setLoadingMore(true);
+  // Silently refill this category's pool with 12 fresh recipes (deduped
+  // against what's already on-screen). Runs in the background so the user
+  // never sees a spinner.
+  const refillPool = useCallback(async (cat) => {
+    if (refilling) return;
+    setRefilling(true);
     try {
-      const data = await attemptWithRetry(() => inspireMeals(category, null, 3, [], true));
+      const data = await inspireMeals(cat, null, POOL_SIZE, [], true);
       const fresh = data.recipes || [];
-      const existingIds = new Set((byCategory[category] || []).map((r) => r.id));
-      const existingTitles = new Set(
-        (byCategory[category] || []).map((r) => (r.title || "").toLowerCase())
-      );
-      const deduped = fresh.filter(
-        (r) => !existingIds.has(r.id) && !existingTitles.has((r.title || "").toLowerCase())
-      );
+      if (fresh.length === 0) return;
       setByCategory((prev) => {
-        const combined = [...(prev[category] || []), ...deduped];
-        const next = { ...prev, [category]: combined };
+        const existing = prev[cat] || [];
+        const existingTitles = new Set(existing.map((r) => (r.title || "").toLowerCase()));
+        const brandNew = fresh.filter((r) => !existingTitles.has((r.title || "").toLowerCase()));
+        // Prefer brand-new recipes but keep some previous ones so the pool is
+        // always POOL_SIZE, avoiding a jarring drop in variety.
+        const combined = [...brandNew, ...existing].slice(0, POOL_SIZE);
+        const next = { ...prev, [cat]: combined };
         writeCache(next);
         return next;
       });
-      if (deduped.length === 0) {
-        toast.info("No new ideas this time — try Shuffle instead.");
-      }
-    } catch (e) {
-      toast.error(friendlyError(e, "Couldn't load more"));
+    } catch {
+      // Silent — best-effort.
     } finally {
-      setLoadingMore(false);
+      setRefilling(false);
     }
-  }, [category, byCategory, loading, loadingMore, attemptWithRetry]);
+  }, [refilling]);
 
   // Background prefetch of the other categories after the current one loads.
   // Server-side cache means these are cheap for everyone else too.
@@ -165,7 +182,7 @@ export default function InspireMe() {
     // Fire all category prefetches in parallel — the backend caches them for 4h
     // so subsequent tab switches are effectively instant.
     const results = await Promise.allSettled(
-      others.map((cat) => inspireMeals(cat, null, 3, [], false).then((d) => [cat, d.recipes || []])),
+      others.map((cat) => inspireMeals(cat, null, POOL_SIZE, [], false).then((d) => [cat, d.recipes || []])),
     );
     const additions = {};
     for (const r of results) {
@@ -191,13 +208,12 @@ export default function InspireMe() {
   }, [category]);
 
   // After the current category has results and no in-flight load, prefetch the rest
-  // AND pre-shuffle a fresh set for this category so the next Shuffle is instant.
+  // so switching tabs is instant.
   useEffect(() => {
     if (loading) return;
     if (!(byCategory[category] || []).length) return;
     const timer = setTimeout(() => {
       prefetchOthers(category);
-      if (!preShuffled[category]) preShuffleNext(category);
     }, 400);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -208,41 +224,21 @@ export default function InspireMe() {
     navigate(`/recipe/${recipe.id}`);
   };
 
-  // Background — quietly fetch a fresh set of recipes for THIS category so the
-  // next Shuffle tap is instant.
-  const preShuffleNext = useCallback(async (cat) => {
-    try {
-      const data = await inspireMeals(cat, null, 3, [], true);
-      const fresh = data.recipes || [];
-      if (fresh.length === 0) return;
-      setPreShuffled((prev) => ({ ...prev, [cat]: fresh }));
-    } catch {
-      // Silent — best-effort.
-    }
-  }, []);
-
   const shuffle = useCallback(() => {
-    // If we have a pre-shuffled set ready, swap it in instantly. Then kick off
-    // another background fetch so the *next* Shuffle is also instant.
-    const ready = preShuffled[category];
-    if (ready && ready.length > 0) {
-      setByCategory((prev) => {
-        const next = { ...prev, [category]: ready };
-        writeCache(next);
-        return next;
-      });
-      setPreShuffled((prev) => {
-        const next = { ...prev };
-        delete next[category];
-        return next;
-      });
-      // Fire-and-forget the next batch.
-      preShuffleNext(category);
+    // If we don't yet have a full pool (e.g. cold offline start), fall back
+    // to a visible reload so the user sees fresh cards.
+    if (pool.length < PAGE_SIZE * 2) {
+      load(category, { force: true });
       return;
     }
-    // No pre-shuffle available — fall back to the normal (visible) load.
-    load(category, { force: true });
-  }, [category, preShuffled, preShuffleNext]);
+    const nextCursor = (cursor + PAGE_SIZE) % pool.length;
+    setCursors((prev) => ({ ...prev, [category]: nextCursor }));
+    // When we've completed a full cycle through the pool, silently refill it
+    // so the next cycle is a fresh set of ideas — user sees no delay.
+    if (nextCursor < PAGE_SIZE) {
+      refillPool(category);
+    }
+  }, [pool.length, cursor, category, load, refillPool]);
 
   return (
     <div className="space-y-8" data-testid="inspire-page">
@@ -291,7 +287,7 @@ export default function InspireMe() {
         <p className="text-sm text-brand-text-soft">
           {loading
             ? "Cooking up ideas…"
-            : `${results.length} ${category} ideas`}
+            : `${pool.length} ${category} ideas`}
         </p>
         <Button
           data-testid="inspire-shuffle-btn"
@@ -354,37 +350,14 @@ export default function InspireMe() {
       )}
 
       {results.length > 0 && (
-        <>
-          <div
-            data-testid="inspire-grid"
-            className={`grid md:grid-cols-2 lg:grid-cols-3 gap-6 ${loading ? "opacity-50 pointer-events-none" : ""}`}
-          >
-            {results.map((r, i) => (
-              <RecipeCard key={r.id || r.title || i} recipe={r} index={i} onOpen={handleOpen} />
-            ))}
-            {loadingMore &&
-              Array.from({ length: 4 }).map((_, i) => (
-                <RecipeCardSkeleton key={`more-${i}`} />
-              ))}
-          </div>
-
-          <div className="flex justify-center pt-2">
-            <Button
-              data-testid="inspire-load-more-btn"
-              variant="outline"
-              disabled={loading || loadingMore}
-              onClick={loadMore}
-              className="rounded-full h-12 px-6 text-sm font-semibold border-brand-primary/30 text-brand-primary bg-white hover:bg-brand-primary/5 disabled:opacity-50"
-            >
-              {loadingMore ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" strokeWidth={1.7} />
-              ) : (
-                <Plus className="w-4 h-4 mr-2" strokeWidth={2.2} />
-              )}
-              {loadingMore ? "Fetching more ideas…" : "Load 3 more ideas"}
-            </Button>
-          </div>
-        </>
+        <div
+          data-testid="inspire-grid"
+          className={`grid md:grid-cols-2 lg:grid-cols-3 gap-6 ${loading ? "opacity-50 pointer-events-none" : ""}`}
+        >
+          {results.map((r, i) => (
+            <RecipeCard key={r.id || r.title || i} recipe={r} index={i} onOpen={handleOpen} />
+          ))}
+        </div>
       )}
     </div>
   );

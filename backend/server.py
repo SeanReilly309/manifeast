@@ -356,6 +356,30 @@ def _build_nutrition(raw: dict) -> "Nutrition":
 
 _LEADING_STEP_RE = re.compile(r"^\s*(?:step\s*)?\d+\s*[\.\):\-]\s*", re.IGNORECASE)
 
+# Shared prompt fragment for how the LLM must write instructions. Applied to
+# every recipe endpoint (suggest / ask-recipes / inspire) so a recipe opened
+# from anywhere in the app has direct, imperative Cook Mode steps.
+DIRECT_INSTRUCTIONS_RULE = (
+    "instructions (REQUIRED — 3-6 SHORT, DIRECT numbered steps that tell the "
+    "cook exactly what to do. Each step MUST start with an imperative verb "
+    "(Preheat, Chop, Heat, Add, Stir, Simmer, Bake, Season, Serve...), include "
+    "the exact quantity/time/temperature from the ingredient list, and be one "
+    "sentence of ~8-20 words. NO chatty preambles, NO 'you can', NO 'if you "
+    "like'. NEVER return empty). "
+)
+
+
+def _is_cookable(recipe: "Recipe") -> bool:
+    """A recipe is only surfaced to users if it has real cooking data — at
+    least 2 numbered instructions AND at least 2 measured ingredients. This
+    stops half-formed LLM outputs from reaching the UI where Cook Mode /
+    Recipe Detail would render blank."""
+    return (
+        recipe is not None
+        and len(recipe.instructions) >= 2
+        and len(recipe.ingredients_detailed) >= 2
+    )
+
 
 def _build_instructions(raw) -> List[str]:
     """Normalize an ``instructions`` value from the LLM into a clean list of
@@ -455,7 +479,7 @@ async def suggest_recipes(request: Request, req: SuggestRequest):
         'objects like {"name": "chicken breast", "quantity": "2 (about 400g)"} or '
         '{"name": "olive oil", "quantity": "2 tbsp"}. Include EVERY ingredient needed with realistic measured '
         "quantities — cups/tbsp/tsp/g/ml/whole units, whichever fits. Do not omit staples like salt/pepper/oil), "
-        "instructions (3–6 concise numbered steps that reference the same quantities), "
+        + DIRECT_INSTRUCTIONS_RULE +
         "servings (integer, default 2), "
         'yield_text (REQUIRED short human-readable yield/output, e.g. "Serves 4", "Makes 12 muffins", '
         '"1 loaf (10 slices)", "About 4 cups"), '
@@ -472,15 +496,23 @@ async def suggest_recipes(request: Request, req: SuggestRequest):
     )
     user_msg = UserMessage(text=user_text)
 
-    recipes: List[Recipe] = []
-    try:
+    async def _fetch_once() -> List[Recipe]:
+        built_recipes: List[Recipe] = []
         raw = await _run_chat(system, user_msg)
         data = _extract_json(raw)
         raw_recipes = data.get("recipes", []) if isinstance(data, dict) else []
         for r in raw_recipes:
             built = _build_recipe(r)
-            if built is not None:
-                recipes.append(built)
+            if _is_cookable(built):
+                built_recipes.append(built)
+        return built_recipes
+
+    recipes: List[Recipe] = []
+    try:
+        recipes = await _fetch_once()
+        if not recipes:
+            logging.warning("suggest: empty after parse, retrying once")
+            recipes = await _fetch_once()
     except HTTPException:
         raise
     except Exception:
@@ -517,7 +549,7 @@ async def ask_recipes(request: Request, req: AskRecipesRequest):
         '{"name": "large eggs", "quantity": "2"} or {"name": "vanilla extract", "quantity": "1 tsp"}. '
         "Include EVERY ingredient with realistic measured quantities — cups/tbsp/tsp/g/ml/whole units. "
         "Do not omit staples like salt or oil), "
-        "instructions (3-8 concise numbered steps that reference the quantities above), "
+        + DIRECT_INSTRUCTIONS_RULE +
         "servings (int, default 2), "
         'yield_text (REQUIRED — short human-readable output like "Makes 24 cookies", '
         '"1 loaf (10 slices)", "Serves 4", "About 12 muffins"), '
@@ -528,8 +560,8 @@ async def ask_recipes(request: Request, req: AskRecipesRequest):
     )
 
     user_msg = UserMessage(text=f"Give me {n} different variations for: {q}")
-    recipes: List[Recipe] = []
-    try:
+    async def _fetch_once() -> List[Recipe]:
+        built_recipes: List[Recipe] = []
         # Use the faster model + json_mode for Ask — the prompt is text-only and
         # gpt-4o-mini is 3-4x faster than gpt-4o here, which prevents the timeout
         # / "network error" Apple reviewers hit on iPad.
@@ -538,8 +570,16 @@ async def ask_recipes(request: Request, req: AskRecipesRequest):
         raw_recipes = data.get("recipes", []) if isinstance(data, dict) else []
         for r in raw_recipes:
             built = _build_recipe(r)
-            if built is not None:
-                recipes.append(built)
+            if _is_cookable(built):
+                built_recipes.append(built)
+        return built_recipes
+
+    recipes: List[Recipe] = []
+    try:
+        recipes = await _fetch_once()
+        if not recipes:
+            logging.warning("ask-recipes: empty after parse, retrying once")
+            recipes = await _fetch_once()
     except HTTPException:
         raise
     except Exception:
@@ -571,7 +611,7 @@ async def inspire_meals(request: Request, req: InspireRequest):
             status_code=400,
             detail=f"category must be one of {sorted(allowed)}",
         )
-    n = max(3, min(req.count, 10))
+    n = max(3, min(req.count, 12))
     force_refresh = bool(getattr(req, "refresh", False))
 
     # ---- Server-side cache (shared across all users, 30 min TTL) ----
@@ -602,7 +642,7 @@ async def inspire_meals(request: Request, req: InspireRequest):
         "ingredients_detailed (REQUIRED — array of objects like "
         '{"name": "rolled oats", "quantity": "1/2 cup (50g)"} covering every ingredient '
         "with realistic measured amounts), "
-        "instructions (REQUIRED — 3-6 concise numbered steps that reference the quantities; NEVER return empty), "
+        + DIRECT_INSTRUCTIONS_RULE +
         "servings (int, default 2), "
         'yield_text (REQUIRED short human-readable output like "Serves 2", '
         '"Makes 12 pancakes", "1 bowl"), '
@@ -622,14 +662,7 @@ async def inspire_meals(request: Request, req: InspireRequest):
         raw_recipes = data.get("recipes", []) if isinstance(data, dict) else []
         for r in raw_recipes:
             built = _build_recipe(r)
-            # Only surface recipes the user can actually cook: must have both
-            # numbered steps AND a measured ingredient list, otherwise the
-            # card would open into an empty CookMode / RecipeDetail.
-            if (
-                built is not None
-                and len(built.instructions) >= 2
-                and len(built.ingredients_detailed) >= 2
-            ):
+            if _is_cookable(built):
                 built_recipes.append(built)
         return built_recipes
 

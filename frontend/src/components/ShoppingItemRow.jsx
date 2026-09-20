@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { Trash2, Check, ExternalLink, ShoppingCart } from "lucide-react";
+import { Trash2, Check, ExternalLink, ShoppingCart, Share2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 
-function ShoppingItemRowBase({ item, retailers, onToggle, onRemove, onBuy }) {
+function ShoppingItemRowBase({ item, retailers, onToggle, onRemove, onBuy, onShare }) {
   const { name, checked } = item;
   return (
     <li
@@ -67,6 +67,15 @@ function ShoppingItemRowBase({ item, retailers, onToggle, onRemove, onBuy }) {
           </DropdownMenuContent>
         </DropdownMenu>
       )}
+
+      <button
+        data-testid={`share-${name}`}
+        onClick={() => onShare && onShare(name)}
+        className="text-brand-text-soft hover:text-brand-primary"
+        aria-label={`Share ${name}`}
+      >
+        <Share2 className="w-4 h-4" strokeWidth={1.7} />
+      </button>
 
       <button
         data-testid={`remove-${name}`}

@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
-import { ShoppingBasket, ExternalLink, Globe, Plus } from "lucide-react";
+import { ShoppingBasket, ExternalLink, Globe, Plus, Share2 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import {
@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { ShoppingItemRow } from "../components/ShoppingItemRow";
 import { useApp } from "../context/AppContext";
 import { COUNTRIES, getCountry } from "../lib/retailers";
+import { shareShoppingItems } from "../lib/shareShop";
 
 function RetailerBand({ remainingCount, retailers, onShop }) {
   return (
@@ -121,6 +122,20 @@ export default function ShoppingList() {
     window.open(url, "_blank", "noopener,noreferrer");
   }, []);
 
+  const shareItem = useCallback(async (name) => {
+    const { method } = await shareShoppingItems([name], { singleItem: true });
+    if (method === "clipboard") toast.success("Link copied — paste it to send.");
+    else if (method === "error") toast.error("Couldn't create share link.");
+  }, []);
+
+  const shareList = useCallback(async () => {
+    const names = shoppingList.map((i) => i.name).filter(Boolean);
+    if (names.length === 0) return;
+    const { method } = await shareShoppingItems(names);
+    if (method === "clipboard") toast.success("Link copied — paste it to send.");
+    else if (method === "error") toast.error("Couldn't create share link.");
+  }, [shoppingList]);
+
   return (
     <div className="space-y-10" data-testid="shopping-page">
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3 animate-fade-up">
@@ -138,7 +153,7 @@ export default function ShoppingList() {
           </p>
         </div>
         {shoppingList.length > 0 && (
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <Select value={country} onValueChange={setCountry}>
               <SelectTrigger
                 data-testid="country-select"
@@ -155,6 +170,14 @@ export default function ShoppingList() {
                 ))}
               </SelectContent>
             </Select>
+            <Button
+              data-testid="share-list-btn"
+              onClick={shareList}
+              className="rounded-full bg-brand-primary hover:bg-brand-primary-dark text-white shadow-[0_8px_20px_rgba(224,122,95,0.28)]"
+            >
+              <Share2 className="w-4 h-4 mr-2" strokeWidth={1.9} />
+              Share list
+            </Button>
             <Button
               data-testid="clear-shopping-btn"
               variant="outline"
@@ -222,6 +245,7 @@ export default function ShoppingList() {
               onToggle={toggleShoppingItem}
               onRemove={removeShoppingItem}
               onBuy={openItem}
+              onShare={shareItem}
             />
           ))}
         </ul>

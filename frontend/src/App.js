@@ -16,6 +16,7 @@ import MealLog from "@/pages/MealLog";
 import Coach from "@/pages/Coach";
 import Ask from "@/pages/Ask";
 import InspireMe from "@/pages/InspireMe";
+import ImportShopping from "@/pages/ImportShopping";
 import Privacy from "@/pages/Privacy";
 import GoalCelebration from "@/components/GoalCelebration";
 
@@ -39,6 +40,7 @@ function App() {
               <Route path="/recipe/:id" element={<RecipeDetail />} />
               <Route path="/favorites" element={<Favorites />} />
               <Route path="/shopping" element={<ShoppingList />} />
+              <Route path="/shop/import" element={<ImportShopping />} />
               <Route path="/about" element={<About />} />
               <Route path="/analyze" element={<AnalyzeMeal />} />
               <Route path="/log" element={<MealLog />} />
