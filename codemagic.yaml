@@ -264,6 +264,10 @@ workflows:
     publishing:
       app_store_connect:
         auth: integration
+        # Just upload — internal TestFlight testers get new builds automatically
+        # once App Store Connect finishes processing. Apple's API no longer
+        # allows assigning builds to *internal* beta groups (it returns
+        # "Cannot add internal group to a build"), so we don't list
+        # `beta_groups` here. Add an EXTERNAL group name here later once you
+        # want to distribute to external testers.
         submit_to_testflight: true
-        beta_groups:
-          - "Internal Testing"
