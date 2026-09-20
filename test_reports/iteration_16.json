@@ -1,0 +1,33 @@
+{
+  "summary": "Iteration 16 testing complete. Validated (A) DIRECT_INSTRUCTIONS_RULE + _is_cookable filter across /api/suggest, /api/ask-recipes, /api/inspire (all 5 categories at count=12), (B) windowed-pool shuffle on /inspire (instant 3-card rotation, no Load more, no spinner), (C) share list + import flow (share-list-btn, share-<name>, /shop/import route with valid/invalid tokens). Backend 53/53 + 8/8 new tests pass. Frontend all critical flows PASS.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_direct_instructions.py",
+    "/app/test_reports/pytest/iter16_direct.xml",
+    "/app/test_reports/pytest/iter16_regression.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "InspireMe.jsx first page load uses force=false so it can hit the 4h server cache from previous sessions and receive fewer than POOL_SIZE (12) recipes — this is why the test observed pool=8 breakfast ideas. The 'N ideas' text (which shows pool.length) will vary based on what's cached. Not a bug — acceptable per spec ('≥6, ideally ~12'), but worth noting for UX: users may see 8 instead of 12 until cache expires or shuffle triggers a refill after a full cycle.",
+    "The shuffle button's spec calls for wrap detection at 'nextCursor < PAGE_SIZE'; when pool.length is not a clean multiple of PAGE_SIZE (e.g. pool=8, cursor jumps 0→3→6→1→4→7→2→5→0), refillPool will trigger earlier than expected. Works but slightly imprecise.",
+    "server.py has grown to ~1060 lines including icon/screenshot utilities. Consider splitting recipe endpoints, icon utils, and screenshot resizer into separate modules for maintainability (>700 line guideline)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_direct_instructions.py (new)"
+  ],
+  "success_rate": {"backend": "100% (61/61 relevant tests, 1 pre-existing missing-fixture ERROR unrelated to iteration)", "frontend": "100%"},
+  "test_credentials": "none required (public app)",
+  "seed_data_creation": "Cleared db.inspire_cache before backend testing. Frontend tests wrote/read localStorage wcie_shopping directly (cleaned up per test).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend has hit-rate on inspire cache — clear db.inspire_cache before any test that must observe the DIRECT_INSTRUCTIONS_RULE freshly. Web Share API not available in headless Chromium; use clipboard branch + grant_permissions(['clipboard-read','clipboard-write']). Share URL format: <origin>/shop/import#<base64url-json>. New test file: /app/backend/tests/test_direct_instructions.py has an imperative-verb whitelist; if new legitimate verbs appear (e.g. 'brew','whip','fold','dip','repeat' now included), add them to IMPERATIVE_VERBS.",
+  "rca of the issue": "N/A — no bugs found. Only one test-side adjustment: expanded imperative-verb whitelist in test_direct_instructions.py after LLM produced valid 'brew/whip/fold/dip/repeat' steps for Tiramisu — these are real imperative verbs; the whitelist was incomplete."
+}

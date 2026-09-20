@@ -360,12 +360,15 @@ _LEADING_STEP_RE = re.compile(r"^\s*(?:step\s*)?\d+\s*[\.\):\-]\s*", re.IGNORECA
 # every recipe endpoint (suggest / ask-recipes / inspire) so a recipe opened
 # from anywhere in the app has direct, imperative Cook Mode steps.
 DIRECT_INSTRUCTIONS_RULE = (
-    "instructions (REQUIRED — 3-6 SHORT, DIRECT numbered steps that tell the "
-    "cook exactly what to do. Each step MUST start with an imperative verb "
-    "(Preheat, Chop, Heat, Add, Stir, Simmer, Bake, Season, Serve...), include "
-    "the exact quantity/time/temperature from the ingredient list, and be one "
-    "sentence of ~8-20 words. NO chatty preambles, NO 'you can', NO 'if you "
-    "like'. NEVER return empty). "
+    "instructions (REQUIRED — a numbered list of SHORT, DIRECT steps that "
+    "tell the cook exactly what to do. USE AS MANY STEPS AS THE RECIPE "
+    "ACTUALLY NEEDS: a simple omelette might be 3-4 steps, a lasagne or "
+    "biryani should be 8-12+ steps — never oversimplify a complex dish. "
+    "Every step MUST start with an imperative verb (Preheat, Chop, Heat, "
+    "Add, Stir, Simmer, Bake, Fold, Whisk, Season, Rest, Serve...), include "
+    "the exact quantity/time/temperature from the ingredient list, and be "
+    "one sentence of ~8-25 words. NO chatty preambles, NO 'you can', NO "
+    "'if you like'. NEVER return empty). "
 )
 
 
