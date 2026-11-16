@@ -12,7 +12,6 @@ import {
   Play,
   Pause,
   RotateCcw,
-  Loader2,
   ListOrdered,
   AlertTriangle,
 } from "lucide-react";
@@ -25,16 +24,15 @@ import {
   formatTimerClock,
   ingredientsForStep,
 } from "../lib/cookStep";
-import { askRecipes } from "../lib/api";
 import { toast } from "sonner";
 
 // Normalise whatever `recipe.steps` / `recipe.instructions` the backend gave
 // us into a stable array of structured step objects that the UI knows how to
-// render. Handles three shapes:
+// render. Handles two shapes:
 //   1. new structured steps:  { number, instruction, ingredients, heat, temperature_c, duration_minutes, doneness_cue }
 //   2. legacy string array:   "Preheat the oven to 180°C..."
-//   3. no instructions at all → synthesise generic prep/cook/serve steps so
-//      Cook Mode never ends up empty.
+// If a recipe genuinely has no instructions at all we return [] — the page
+// then shows the proper error state rather than a generic guide.
 function buildStructuredSteps(recipe) {
   if (!recipe) return [];
   // 1. New structured steps
@@ -63,27 +61,7 @@ function buildStructuredSteps(recipe) {
       doneness_cue: "",
     }));
   }
-  // 3. Nothing at all — synthesise a bare-bones walkthrough.
-  const ings = Array.isArray(recipe.ingredients_detailed) ? recipe.ingredients_detailed : [];
-  if (ings.length === 0) return [];
-  const names = ings
-    .map((i) => (typeof i === "string" ? i : i?.name || ""))
-    .filter(Boolean);
-  return [
-    `Gather and measure: ${names.slice(0, 6).join(", ")}${names.length > 6 ? ` and ${names.length - 6} more` : ""}.`,
-    "Prep your ingredients: chop, slice, or measure them out so they're ready to go.",
-    "Combine the ingredients in the order and manner typical for this dish.",
-    "Cook on medium heat until the dish is done and the aromas are developed.",
-    "Taste, adjust seasoning, and serve.",
-  ].map((text, i) => ({
-    number: i + 1,
-    instruction: text,
-    ingredients: [],
-    heat: i === 3 ? "medium" : "",
-    temperature_c: null,
-    duration_minutes: null,
-    doneness_cue: "",
-  }));
+  return [];
 }
 
 function heatLabel(heat) {
@@ -97,7 +75,7 @@ function heatLabel(heat) {
 export default function CookMode() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { recipes, favorites, setRecipes } = useApp();
+  const { recipes, favorites } = useApp();
 
   // Search every cache in the app for the recipe. This fixes the old
   // "No recipe to cook" bug where CookMode could only see AppContext state.
@@ -105,8 +83,6 @@ export default function CookMode() {
     () => findRecipeById(id, { contextRecipes: recipes, contextFavorites: favorites }),
     [id, recipes, favorites],
   );
-
-  const [refetching, setRefetching] = useState(false);
 
   const steps = useMemo(() => buildStructuredSteps(recipe), [recipe]);
 
@@ -186,31 +162,6 @@ export default function CookMode() {
     return () => window.removeEventListener("keydown", handler);
   }, [next, prev, exit]);
 
-  // --- Retry: fetch a fresh copy of the recipe (title lookup) -------------
-  const refetchRecipe = useCallback(async () => {
-    if (!recipe?.title) {
-      toast.error("No recipe title to search with.");
-      return;
-    }
-    setRefetching(true);
-    try {
-      const data = await askRecipes(recipe.title, 1);
-      const fresh = (data.recipes || [])[0];
-      if (!fresh) throw new Error("no result");
-      // Swap the old id's entry in context so navigation back still works.
-      const next = (recipes || []).map((r) => (r.id === recipe.id ? { ...fresh, id: recipe.id } : r));
-      // If the old recipe wasn't in context, prepend the new one so
-      // findRecipeById picks it up next render.
-      const hasIt = next.some((r) => r.id === recipe.id);
-      setRecipes(hasIt ? next : [{ ...fresh, id: recipe.id }, ...next]);
-      toast.success("Recipe reloaded.");
-    } catch {
-      toast.error("Couldn't load this recipe. Try again.");
-    } finally {
-      setRefetching(false);
-    }
-  }, [recipe, recipes, setRecipes]);
-
   // --- Error state -------------------------------------------------------
   // Prefer the LLM's explicit per-step ingredients; fall back to heuristic
   // text matching for legacy string-only recipes. Must be before the early
@@ -224,7 +175,9 @@ export default function CookMode() {
   }, [currentStep, currentText, recipe]);
 
   // --- Error state -------------------------------------------------------
-  if (!recipe) {
+  // Treat "no recipe found" AND "recipe found but has zero cookable steps"
+  // the same way — show the proper error card instead of a generic guide.
+  if (!recipe || steps.length === 0) {
     return (
       <div
         className="min-h-[60vh] grid place-items-center px-6"
@@ -261,9 +214,6 @@ export default function CookMode() {
   }
 
   const headerImage = recipeImage(recipe, 0, { width: 1200, height: 420 });
-  const hasRealInstructions =
-    (Array.isArray(recipe.steps) && recipe.steps.length > 0) ||
-    (Array.isArray(recipe.instructions) && recipe.instructions.length > 0);
   const heat = currentStep?.heat || "";
   const temperatureC = currentStep?.temperature_c;
   const durationMin = currentStep?.duration_minutes;
@@ -328,27 +278,6 @@ export default function CookMode() {
               </h1>
             </div>
           </div>
-
-          {/* Fallback banner if we had to synthesise steps */}
-          {!hasRealInstructions && (
-            <div
-              data-testid="cook-fallback-banner"
-              className="mt-5 rounded-2xl border border-brand-primary/20 bg-brand-primary/5 px-4 py-3 text-sm text-brand-text flex items-start gap-3"
-            >
-              <AlertTriangle className="w-4 h-4 mt-0.5 text-brand-primary" strokeWidth={1.8} />
-              <div className="flex-1">
-                These steps are a starting guide. Tap Retry to fetch proper step-by-step instructions.
-                <button
-                  data-testid="cook-refetch-btn"
-                  onClick={refetchRecipe}
-                  disabled={refetching}
-                  className="ml-2 font-semibold text-brand-primary hover:underline disabled:opacity-60"
-                >
-                  {refetching ? "Fetching…" : "Retry"}
-                </button>
-              </div>
-            </div>
-          )}
 
           {/* Step text */}
           <section className="mt-6 md:mt-10 space-y-5">
@@ -526,15 +455,6 @@ export default function CookMode() {
           </Button>
         )}
       </footer>
-
-      {refetching && (
-        <div className="fixed inset-0 z-[60] bg-black/20 grid place-items-center">
-          <div className="bg-white rounded-2xl px-5 py-4 flex items-center gap-3 shadow-xl">
-            <Loader2 className="w-5 h-5 animate-spin text-brand-primary" />
-            <span className="text-sm text-brand-text">Fetching full instructions…</span>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
