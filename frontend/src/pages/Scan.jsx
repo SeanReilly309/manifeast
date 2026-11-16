@@ -150,7 +150,7 @@ export default function Scan() {
   const { search } = useLocation();
   const startManual = new URLSearchParams(search).get("mode") === "manual";
 
-  const { ingredients, setIngredients, setRecipes } = useApp();
+  const { ingredients, setIngredients, setRecipes, rememberRecipes } = useApp();
   const [mode, setMode] = useState(startManual ? "manual" : "photo");
   const [manualInput, setManualInput] = useState("");
   const [suggesting, setSuggesting] = useState(false);
@@ -185,6 +185,7 @@ export default function Scan() {
     try {
       const data = await suggestRecipes(ingredients, 5);
       setRecipes(data.recipes || []);
+      rememberRecipes(data.recipes || []);
       navigate("/results");
     } catch (e) {
       const msg = e?.response?.data?.detail || e?.message || "Could not get recipes";
@@ -192,7 +193,7 @@ export default function Scan() {
     } finally {
       setSuggesting(false);
     }
-  }, [ingredients, setRecipes, navigate]);
+  }, [ingredients, setRecipes, rememberRecipes, navigate]);
 
   return (
     <div className="space-y-10" data-testid="scan-page">

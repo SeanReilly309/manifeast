@@ -40,7 +40,7 @@ function writeCache(next) {
 }
 
 export default function InspireMe() {
-  const { setRecipes, rememberRecipe } = useApp();
+  const { setRecipes, rememberRecipe, rememberRecipes } = useApp();
   const [category, setCategory] = useState("breakfast");
   const [loading, setLoading] = useState(false);
   const [refilling, setRefilling] = useState(false);
@@ -131,9 +131,13 @@ export default function InspireMe() {
     setError(null);
     try {
       const data = await attemptWithRetry(() => inspireMeals(cat, null, POOL_SIZE, [], force));
-      const next = { ...byCategory, [cat]: data.recipes || [] };
+      const freshRecipes = data.recipes || [];
+      const next = { ...byCategory, [cat]: freshRecipes };
       setByCategory(next);
       writeCache(next);
+      // Durable per-recipe cache so Cook Mode can always resolve any card
+      // the user might tap, even after the pool later gets refilled.
+      rememberRecipes(freshRecipes);
       setCursors((prev) => ({ ...prev, [cat]: 0 }));
     } catch (e) {
       const status = e?.response?.status;
@@ -143,7 +147,7 @@ export default function InspireMe() {
     } finally {
       setLoading(false);
     }
-  }, [byCategory, attemptWithRetry]);
+  }, [byCategory, attemptWithRetry, rememberRecipes]);
 
   // Silently refill this category's pool with 12 fresh recipes (deduped
   // against what's already on-screen). Runs in the background so the user
@@ -155,6 +159,7 @@ export default function InspireMe() {
       const data = await inspireMeals(cat, null, POOL_SIZE, [], true);
       const fresh = data.recipes || [];
       if (fresh.length === 0) return;
+      rememberRecipes(fresh);
       setByCategory((prev) => {
         const existing = prev[cat] || [];
         const existingTitles = new Set(existing.map((r) => (r.title || "").toLowerCase()));
@@ -171,7 +176,7 @@ export default function InspireMe() {
     } finally {
       setRefilling(false);
     }
-  }, [refilling]);
+  }, [refilling, rememberRecipes]);
 
   // Background prefetch of the other categories after the current one loads.
   // Server-side cache means these are cheap for everyone else too.
@@ -192,13 +197,18 @@ export default function InspireMe() {
       }
     }
     if (Object.keys(additions).length > 0) {
+      // Pre-cache every prefetched recipe so tab-switching into them and
+      // then tapping Start Cooking always resolves.
+      const flat = [];
+      for (const list of Object.values(additions)) flat.push(...list);
+      rememberRecipes(flat);
       setByCategory((prev) => {
         const next = { ...prev, ...additions };
         writeCache(next);
         return next;
       });
     }
-  }, [byCategory]);
+  }, [byCategory, rememberRecipes]);
 
   useEffect(() => {
     // Clean up legacy keys from the removed diet-filter feature.

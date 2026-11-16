@@ -96,6 +96,27 @@ export function AppProvider({ children }) {
     });
   }, []);
 
+  // Bulk variant — called when a whole pool / result set lands (Inspire tab
+  // load, Ask results, Scan results, Favorites open). Pre-caches every
+  // recipe up-front so later navigation into Cook Mode is never blocked by
+  // an in-flight state update or an iOS webview timing glitch.
+  const rememberRecipes = useCallback((list) => {
+    if (!Array.isArray(list) || list.length === 0) return;
+    setRecentRecipes((prev) => {
+      const incoming = list.filter((r) => r && r.id);
+      if (incoming.length === 0) return prev;
+      const incomingIds = new Set(incoming.map((r) => r.id));
+      const kept = prev.filter((r) => r && !incomingIds.has(r.id));
+      const next = [...incoming, ...kept].slice(0, RECENT_RECIPES_CAP);
+      try {
+        localStorage.setItem(LS_RECENT, JSON.stringify(next));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }, []);
+
   const addShoppingItems = useCallback((items) => {
     setShoppingList((prev) => {
       const set = new Set(prev.map((i) => i.name));
@@ -176,7 +197,7 @@ export function AppProvider({ children }) {
     () => ({
       ingredients, setIngredients,
       recipes, setRecipes,
-      recentRecipes, rememberRecipe,
+      recentRecipes, rememberRecipe, rememberRecipes,
       shoppingList, addShoppingItems, toggleShoppingItem, removeShoppingItem, clearShopping,
       favorites, toggleFavorite, isFavorite,
       mealLog, addMealToLog, removeMealFromLog, clearMealLog,
@@ -186,7 +207,7 @@ export function AppProvider({ children }) {
     }),
     [
       ingredients, recipes, recentRecipes, shoppingList, favorites, mealLog, dailyGoal, celebrating, country,
-      rememberRecipe,
+      rememberRecipe, rememberRecipes,
       addShoppingItems, toggleShoppingItem, removeShoppingItem, clearShopping,
       toggleFavorite, isFavorite,
       addMealToLog, removeMealFromLog, clearMealLog,

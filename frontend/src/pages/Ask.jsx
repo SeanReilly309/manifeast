@@ -18,7 +18,7 @@ const SUGGESTIONS = [
 ];
 
 export default function Ask() {
-  const { setRecipes, rememberRecipe } = useApp();
+  const { setRecipes, rememberRecipe, rememberRecipes } = useApp();
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState([]);
@@ -55,6 +55,7 @@ export default function Ask() {
       setResults(data.recipes || []);
       setLastQuery(clean);
       setRecipes(data.recipes || []);
+      rememberRecipes(data.recipes || []);
     } catch (e) {
       const detail =
         e?.response?.data?.detail ||
@@ -66,7 +67,7 @@ export default function Ask() {
     } finally {
       setLoading(false);
     }
-  }, [setRecipes]);
+  }, [setRecipes, rememberRecipes]);
 
   // Auto-run search if URL has ?q=
   useEffect(() => {
