@@ -79,12 +79,20 @@ export function AppProvider({ children }) {
   // Durable per-recipe cache. Called whenever the user *opens* a recipe
   // (card tap → RecipeDetail). Guarantees Cook Mode can still find it later
   // even if other pages overwrite `recipes` state or the Inspire pool is
-  // refilled in the background.
+  // refilled in the background. We ALSO write to localStorage synchronously
+  // so a fast navigate() right after rememberRecipe doesn't out-race the
+  // useLocalStorageSync effect on slower iOS Capacitor webviews.
   const rememberRecipe = useCallback((recipe) => {
     if (!recipe || !recipe.id) return;
     setRecentRecipes((prev) => {
       const filtered = prev.filter((r) => r && r.id !== recipe.id);
-      return [recipe, ...filtered].slice(0, RECENT_RECIPES_CAP);
+      const next = [recipe, ...filtered].slice(0, RECENT_RECIPES_CAP);
+      try {
+        localStorage.setItem(LS_RECENT, JSON.stringify(next));
+      } catch {
+        /* storage full or disabled — the useEffect mirror handles it */
+      }
+      return next;
     });
   }, []);
 
