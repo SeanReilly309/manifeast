@@ -114,6 +114,21 @@ class IngredientDetail(BaseModel):
     quantity: str = ""
 
 
+class CookStep(BaseModel):
+    """A single structured cooking step.
+
+    All fields except `instruction` are optional because the LLM may not
+    always have a sensible value (e.g. a plating step has no heat/temp).
+    """
+    number: int
+    instruction: str
+    ingredients: List[str] = Field(default_factory=list)
+    heat: str = ""  # "low" | "medium-low" | "medium" | "medium-high" | "high" | "" (none)
+    temperature_c: Optional[int] = None
+    duration_minutes: Optional[int] = None
+    doneness_cue: str = ""  # optional visual/tactile cue (e.g. "golden brown")
+
+
 class Recipe(BaseModel):
     id: str
     title: str
@@ -125,6 +140,7 @@ class Recipe(BaseModel):
     missing_ingredients: List[str]
     ingredients_detailed: List[IngredientDetail] = Field(default_factory=list)
     instructions: List[str]
+    steps: List[CookStep] = Field(default_factory=list)
     nutrition: Nutrition = Field(default_factory=Nutrition)
     servings: int = 1
     yield_text: str = ""
@@ -378,30 +394,143 @@ def _build_nutrition(raw: dict) -> "Nutrition":
 
 _LEADING_STEP_RE = re.compile(r"^\s*(?:step\s*)?\d+\s*[\.\):\-]\s*", re.IGNORECASE)
 
-# Shared prompt fragment for how the LLM must write instructions. Applied to
-# every recipe endpoint (suggest / ask-recipes / inspire) so a recipe opened
-# from anywhere in the app has direct, imperative Cook Mode steps.
+# Shared prompt fragment for how the LLM must write cooking steps. Applied
+# to every recipe endpoint (suggest / ask-recipes / inspire) so a recipe
+# opened from anywhere in the app has rich, structured Cook Mode steps.
 DIRECT_INSTRUCTIONS_RULE = (
-    "instructions (REQUIRED — a numbered list of SHORT, DIRECT steps that "
-    "tell the cook exactly what to do. USE AS MANY STEPS AS THE RECIPE "
-    "ACTUALLY NEEDS: a simple omelette might be 3-4 steps, a lasagne or "
-    "biryani should be 8-12+ steps — never oversimplify a complex dish. "
-    "Every step MUST start with an imperative verb (Preheat, Chop, Heat, "
-    "Add, Stir, Simmer, Bake, Fold, Whisk, Season, Rest, Serve...), include "
-    "the exact quantity/time/temperature from the ingredient list, and be "
-    "one sentence of ~8-25 words. NO chatty preambles, NO 'you can', NO "
-    "'if you like'. NEVER return empty). "
+    "steps (REQUIRED — an ARRAY of STRUCTURED step objects; USE AS MANY "
+    "STEPS AS THE RECIPE ACTUALLY NEEDS: a simple omelette might be 3-4 "
+    "steps, a lasagne/biryani/curry should be 8-14 steps — never oversimplify. "
+    'Each step object is: {"number": 1, "instruction": "...", '
+    '"ingredients": ["300g chicken breast", "1 tbsp olive oil"], '
+    '"heat": "medium-high", "temperature_c": 180, "duration_minutes": 6, '
+    '"doneness_cue": "golden brown and cooked through"}. '
+    "RULES: (a) `instruction` MUST start with an imperative verb (Preheat, "
+    "Chop, Heat, Add, Stir, Simmer, Bake, Fold, Whisk, Season, Rest, Serve, "
+    "Combine, Drain, Flip, Deglaze, Transfer, Garnish...) and be ONE sentence "
+    "of ~10-30 words that references exact quantities from `ingredients_detailed` "
+    "— no 'you can', no 'if you like'. (b) `ingredients` lists the exact "
+    "measured strings used IN THIS STEP (e.g. '300g chicken breast', "
+    "'2 tbsp soy sauce') — pulled verbatim from `ingredients_detailed`. Use "
+    "[] for prep/plating steps with no ingredient. (c) `heat` is one of "
+    '"low", "medium-low", "medium", "medium-high", "high" when a hob/pan is '
+    "involved, else \"\" (empty string). (d) `temperature_c` is the oven/air-"
+    "fryer temperature in Celsius when relevant (e.g. 180, 200), else null. "
+    "(e) `duration_minutes` is the cook/bake/rest time for this step as an "
+    "integer, else null. (f) `doneness_cue` is a short visual/tactile cue "
+    '("golden brown", "fragrant", "thickened") or "". Also include `instructions` '
+    "as a plain string array mirroring each step's `instruction` for backward "
+    "compatibility. NEVER return empty steps/instructions), "
 )
+
+
+_VALID_HEATS = {"low", "medium-low", "medium", "medium-high", "high"}
+
+
+def _normalise_heat(raw) -> str:
+    if not isinstance(raw, str):
+        return ""
+    v = raw.strip().lower().replace(" ", "-")
+    return v if v in _VALID_HEATS else ""
+
+
+def _coerce_opt_int(value) -> Optional[int]:
+    if value is None or value == "" or value is False:
+        return None
+    n = _coerce_int(value, default=-10**9)
+    return n if n != -10**9 else None
+
+
+def _build_steps(raw_steps, fallback_instructions, ingredients_detailed) -> List[CookStep]:
+    """Parse the LLM's `steps` array into CookStep objects. If the LLM only
+    returned plain `instructions`, synthesise minimal structured steps so the
+    app always has `steps` to render. `ingredients_detailed` is used as the
+    pool for heuristically backfilling an `ingredients` list when the LLM
+    omits it.
+    """
+    out: List[CookStep] = []
+    ing_names = [
+        (ing.name or "").lower() for ing in (ingredients_detailed or []) if ing.name
+    ]
+    ing_quantities = {
+        (ing.name or "").lower(): (ing.quantity or "") for ing in (ingredients_detailed or [])
+    }
+
+    def _step_ingredients_for(text: str, llm_list) -> List[str]:
+        if isinstance(llm_list, list) and llm_list:
+            return [str(x).strip() for x in llm_list if isinstance(x, (str, int, float)) and str(x).strip()]
+        # Heuristic fallback: find any ingredient name appearing in the step
+        # text and emit "quantity name" (e.g. "2 tbsp olive oil").
+        t = f" {text.lower()} "
+        matched = []
+        for name in ing_names:
+            key = name.split()[-1] if name else ""
+            if not key or len(key) < 3:
+                continue
+            if f" {key} " in t or f" {key}s " in t or f" {key}es " in t:
+                qty = ing_quantities.get(name, "").strip()
+                matched.append(f"{qty} {name}".strip())
+        return matched
+
+    if isinstance(raw_steps, list) and raw_steps:
+        for i, s in enumerate(raw_steps, 1):
+            if not isinstance(s, dict):
+                # Allow plain strings in the steps array as a lax fallback.
+                text = _LEADING_STEP_RE.sub("", str(s or "")).strip()
+                if not text:
+                    continue
+                out.append(CookStep(
+                    number=i,
+                    instruction=text,
+                    ingredients=_step_ingredients_for(text, None),
+                ))
+                continue
+            instr = (
+                s.get("instruction")
+                or s.get("text")
+                or s.get("step")
+                or s.get("description")
+                or ""
+            )
+            if not isinstance(instr, str):
+                instr = str(instr or "")
+            instr = _LEADING_STEP_RE.sub("", instr).strip()
+            if not instr:
+                continue
+            out.append(CookStep(
+                number=_coerce_int(s.get("number"), i),
+                instruction=instr,
+                ingredients=_step_ingredients_for(instr, s.get("ingredients")),
+                heat=_normalise_heat(s.get("heat")),
+                temperature_c=_coerce_opt_int(s.get("temperature_c") or s.get("temperature")),
+                duration_minutes=_coerce_opt_int(s.get("duration_minutes") or s.get("duration") or s.get("time_minutes")),
+                doneness_cue=str(s.get("doneness_cue") or s.get("cue") or "").strip(),
+            ))
+    # Fallback path: no structured steps — build them from the string
+    # instructions so Cook Mode still has `steps` to render.
+    if not out and isinstance(fallback_instructions, list):
+        for i, text in enumerate(fallback_instructions, 1):
+            if not isinstance(text, str) or not text.strip():
+                continue
+            out.append(CookStep(
+                number=i,
+                instruction=text.strip(),
+                ingredients=_step_ingredients_for(text, None),
+            ))
+    # Renumber defensively — LLMs sometimes return 1,1,2 or 1,3,4.
+    for i, s in enumerate(out, 1):
+        s.number = i
+    return out
 
 
 def _is_cookable(recipe: "Recipe") -> bool:
     """A recipe is only surfaced to users if it has real cooking data — at
-    least 2 numbered instructions AND at least 2 measured ingredients. This
-    stops half-formed LLM outputs from reaching the UI where Cook Mode /
+    least 2 steps AND at least 2 measured ingredients. This stops
+    half-formed LLM outputs from reaching the UI where Cook Mode /
     Recipe Detail would render blank."""
     return (
         recipe is not None
-        and len(recipe.instructions) >= 2
+        and (len(recipe.steps) >= 2 or len(recipe.instructions) >= 2)
         and len(recipe.ingredients_detailed) >= 2
     )
 
@@ -460,6 +589,13 @@ def _build_recipe(r: dict) -> Optional["Recipe"]:
         title = str(r.get("title", "")).strip()
         if not title:
             return None
+        ingredients_detailed = _build_ingredients_detailed(r.get("ingredients_detailed"))
+        instructions = _build_instructions(r.get("instructions"))
+        steps = _build_steps(r.get("steps"), instructions, ingredients_detailed)
+        # Keep `instructions` consistent with `steps` so legacy UI paths and
+        # older clients still render something sensible.
+        if not instructions and steps:
+            instructions = [s.instruction for s in steps]
         return Recipe(
             id=str(uuid.uuid4()),
             title=title,
@@ -469,8 +605,9 @@ def _build_recipe(r: dict) -> Optional["Recipe"]:
             description=str(r.get("description", "")).strip(),
             ingredients_used=_str_list(r.get("ingredients_used")),
             missing_ingredients=_str_list(r.get("missing_ingredients")),
-            ingredients_detailed=_build_ingredients_detailed(r.get("ingredients_detailed")),
-            instructions=_build_instructions(r.get("instructions")),
+            ingredients_detailed=ingredients_detailed,
+            instructions=instructions,
+            steps=steps,
             servings=max(1, _coerce_int(r.get("servings"), 1)),
             yield_text=str(r.get("yield_text", "")).strip(),
             nutrition=_build_nutrition(r.get("nutrition")),

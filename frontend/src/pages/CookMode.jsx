@@ -6,6 +6,9 @@ import {
   ChevronRight,
   Check,
   Clock,
+  Flame,
+  Thermometer,
+  Eye,
   Play,
   Pause,
   RotateCcw,
@@ -25,25 +28,70 @@ import {
 import { askRecipes } from "../lib/api";
 import { toast } from "sonner";
 
-// If the LLM somehow returns a recipe with 0 instructions (our backend
-// filter normally stops this), construct a sensible generic step list from
-// the ingredient list so Cook Mode still has something to show. The user
-// can tap Retry to fetch a proper AI-generated version.
-function fallbackSteps(recipe) {
-  const ings = Array.isArray(recipe?.ingredients_detailed)
-    ? recipe.ingredients_detailed
-    : [];
+// Normalise whatever `recipe.steps` / `recipe.instructions` the backend gave
+// us into a stable array of structured step objects that the UI knows how to
+// render. Handles three shapes:
+//   1. new structured steps:  { number, instruction, ingredients, heat, temperature_c, duration_minutes, doneness_cue }
+//   2. legacy string array:   "Preheat the oven to 180°C..."
+//   3. no instructions at all → synthesise generic prep/cook/serve steps so
+//      Cook Mode never ends up empty.
+function buildStructuredSteps(recipe) {
+  if (!recipe) return [];
+  // 1. New structured steps
+  if (Array.isArray(recipe.steps) && recipe.steps.length > 0) {
+    return recipe.steps.map((s, i) => ({
+      number: s.number || i + 1,
+      instruction: s.instruction || "",
+      ingredients: Array.isArray(s.ingredients) ? s.ingredients.filter(Boolean) : [],
+      heat: s.heat || "",
+      temperature_c: s.temperature_c ?? null,
+      duration_minutes: s.duration_minutes ?? null,
+      doneness_cue: s.doneness_cue || "",
+    }));
+  }
+  // 2. Legacy string instructions — rebuild shallow structured objects so the
+  // UI code only has one render path.
+  const legacy = Array.isArray(recipe.instructions) ? recipe.instructions : [];
+  if (legacy.length > 0) {
+    return legacy.map((text, i) => ({
+      number: i + 1,
+      instruction: typeof text === "string" ? text : String(text || ""),
+      ingredients: [],
+      heat: "",
+      temperature_c: null,
+      duration_minutes: null,
+      doneness_cue: "",
+    }));
+  }
+  // 3. Nothing at all — synthesise a bare-bones walkthrough.
+  const ings = Array.isArray(recipe.ingredients_detailed) ? recipe.ingredients_detailed : [];
   if (ings.length === 0) return [];
-  const list = ings
+  const names = ings
     .map((i) => (typeof i === "string" ? i : i?.name || ""))
     .filter(Boolean);
   return [
-    `Gather and measure: ${list.slice(0, 6).join(", ")}${list.length > 6 ? ` and ${list.length - 6} more` : ""}.`,
+    `Gather and measure: ${names.slice(0, 6).join(", ")}${names.length > 6 ? ` and ${names.length - 6} more` : ""}.`,
     "Prep your ingredients: chop, slice, or measure them out so they're ready to go.",
     "Combine the ingredients in the order and manner typical for this dish.",
     "Cook on medium heat until the dish is done and the aromas are developed.",
     "Taste, adjust seasoning, and serve.",
-  ];
+  ].map((text, i) => ({
+    number: i + 1,
+    instruction: text,
+    ingredients: [],
+    heat: i === 3 ? "medium" : "",
+    temperature_c: null,
+    duration_minutes: null,
+    doneness_cue: "",
+  }));
+}
+
+function heatLabel(heat) {
+  if (!heat) return "";
+  return heat
+    .split("-")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join("-");
 }
 
 export default function CookMode() {
@@ -60,31 +108,38 @@ export default function CookMode() {
 
   const [refetching, setRefetching] = useState(false);
 
-  const steps = useMemo(() => {
-    const direct = Array.isArray(recipe?.instructions) ? recipe.instructions : [];
-    return direct.length > 0 ? direct : fallbackSteps(recipe);
-  }, [recipe]);
+  const steps = useMemo(() => buildStructuredSteps(recipe), [recipe]);
 
   const [step, setStep] = useState(0);
-  // Keep step in range if the recipe/instructions change mid-session.
+  // Keep step in range if the recipe changes mid-session.
   useEffect(() => { setStep(0); }, [recipe?.id]);
 
   const total = steps.length;
-  const currentStep = steps[step] || "";
+  const currentStep = steps[step] || null;
+  const currentText = currentStep?.instruction || "";
   const progress = total > 0 ? ((step + 1) / total) * 100 : 0;
   const isLast = step === total - 1;
 
-  // --- Per-step timer (auto-detected from the step text) -------------------
-  const duration = useMemo(() => extractDuration(currentStep), [currentStep]);
+  // --- Per-step timer -----------------------------------------------------
+  // Prefer the LLM's explicit duration_minutes; fall back to parsing the
+  // instruction text (handles legacy string-only recipes).
+  const timerSeconds = useMemo(() => {
+    if (!currentStep) return 0;
+    if (typeof currentStep.duration_minutes === "number" && currentStep.duration_minutes > 0) {
+      return currentStep.duration_minutes * 60;
+    }
+    const parsed = extractDuration(currentText);
+    return parsed?.seconds ?? 0;
+  }, [currentStep, currentText]);
   const [timerRunning, setTimerRunning] = useState(false);
-  const [remaining, setRemaining] = useState(duration?.seconds ?? 0);
+  const [remaining, setRemaining] = useState(timerSeconds);
   const intervalRef = useRef(null);
 
   // Reset the timer whenever we move to a new step.
   useEffect(() => {
     setTimerRunning(false);
-    setRemaining(duration?.seconds ?? 0);
-  }, [step, duration?.seconds]);
+    setRemaining(timerSeconds);
+  }, [step, timerSeconds]);
 
   useEffect(() => {
     if (!timerRunning) return;
@@ -109,7 +164,7 @@ export default function CookMode() {
   const toggleTimer = () => setTimerRunning((v) => !v);
   const resetTimer = () => {
     setTimerRunning(false);
-    setRemaining(duration?.seconds ?? 0);
+    setRemaining(timerSeconds);
   };
 
   // --- Navigation ---------------------------------------------------------
@@ -157,6 +212,18 @@ export default function CookMode() {
   }, [recipe, recipes, setRecipes]);
 
   // --- Error state -------------------------------------------------------
+  // Prefer the LLM's explicit per-step ingredients; fall back to heuristic
+  // text matching for legacy string-only recipes. Must be before the early
+  // return so hook order stays stable.
+  const stepIngredients = useMemo(() => {
+    if (currentStep?.ingredients?.length) {
+      return currentStep.ingredients.map((s) => ({ name: s, quantity: "" }));
+    }
+    const ings = Array.isArray(recipe?.ingredients_detailed) ? recipe.ingredients_detailed : [];
+    return ingredientsForStep(currentText, ings);
+  }, [currentStep, currentText, recipe]);
+
+  // --- Error state -------------------------------------------------------
   if (!recipe) {
     return (
       <div
@@ -193,9 +260,15 @@ export default function CookMode() {
     );
   }
 
-  const stepIngredients = ingredientsForStep(currentStep, recipe.ingredients_detailed);
   const headerImage = recipeImage(recipe, 0, { width: 1200, height: 420 });
-  const hasRealInstructions = Array.isArray(recipe.instructions) && recipe.instructions.length > 0;
+  const hasRealInstructions =
+    (Array.isArray(recipe.steps) && recipe.steps.length > 0) ||
+    (Array.isArray(recipe.instructions) && recipe.instructions.length > 0);
+  const heat = currentStep?.heat || "";
+  const temperatureC = currentStep?.temperature_c;
+  const durationMin = currentStep?.duration_minutes;
+  const donenessCue = currentStep?.doneness_cue || "";
+  const hasMeta = Boolean(heat || temperatureC || durationMin || donenessCue);
 
   return (
     <div
@@ -290,11 +363,52 @@ export default function CookMode() {
               data-testid="cook-step-text"
               className="font-serif-display text-2xl md:text-4xl leading-[1.25] text-brand-text text-balance animate-fade-up"
             >
-              {currentStep}
+              {currentText}
             </p>
 
+            {/* Structured meta chips (heat / temp / time / doneness cue) */}
+            {hasMeta && (
+              <div
+                data-testid="cook-step-meta"
+                className="flex flex-wrap gap-2 pt-1 animate-fade-up"
+              >
+                {heat && (
+                  <span
+                    data-testid="cook-step-heat"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-brand-primary/10 text-brand-primary px-3 py-1.5 text-xs font-semibold"
+                  >
+                    <Flame className="w-3.5 h-3.5" strokeWidth={2} /> {heatLabel(heat)} heat
+                  </span>
+                )}
+                {typeof temperatureC === "number" && temperatureC > 0 && (
+                  <span
+                    data-testid="cook-step-temp"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-brand-secondary/15 text-brand-secondary-dark px-3 py-1.5 text-xs font-semibold"
+                  >
+                    <Thermometer className="w-3.5 h-3.5" strokeWidth={2} /> {temperatureC}°C
+                  </span>
+                )}
+                {typeof durationMin === "number" && durationMin > 0 && (
+                  <span
+                    data-testid="cook-step-duration"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-brand-accent/40 text-brand-text px-3 py-1.5 text-xs font-semibold"
+                  >
+                    <Clock className="w-3.5 h-3.5" strokeWidth={2} /> {durationMin} min
+                  </span>
+                )}
+                {donenessCue && (
+                  <span
+                    data-testid="cook-step-cue"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-white border border-brand-line text-brand-text-soft px-3 py-1.5 text-xs font-medium"
+                  >
+                    <Eye className="w-3.5 h-3.5" strokeWidth={2} /> {donenessCue}
+                  </span>
+                )}
+              </div>
+            )}
+
             {/* Inline timer */}
-            {duration && (
+            {timerSeconds > 0 && (
               <div
                 data-testid="cook-timer"
                 className="flex items-center gap-4 rounded-2xl bg-white border border-brand-line px-4 py-3"
@@ -386,7 +500,7 @@ export default function CookMode() {
         <div className="hidden sm:flex gap-1.5">
           {steps.map((s, i) => (
             <span
-              key={`${i}-${String(s).slice(0, 12)}`}
+              key={`${i}-${(s.instruction || "").slice(0, 12)}`}
               className={`w-2 h-2 rounded-full transition-colors ${
                 i === step ? "bg-brand-primary" : i < step ? "bg-brand-secondary" : "bg-brand-line"
               }`}
