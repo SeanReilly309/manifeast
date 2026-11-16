@@ -40,7 +40,7 @@ function writeCache(next) {
 }
 
 export default function InspireMe() {
-  const { setRecipes } = useApp();
+  const { setRecipes, rememberRecipe } = useApp();
   const [category, setCategory] = useState("breakfast");
   const [loading, setLoading] = useState(false);
   const [refilling, setRefilling] = useState(false);
@@ -220,6 +220,7 @@ export default function InspireMe() {
   }, [category, loading, byCategory[category]?.length]);
 
   const handleOpen = (recipe) => {
+    rememberRecipe(recipe);
     setRecipes(results);
     navigate(`/recipe/${recipe.id}`);
   };

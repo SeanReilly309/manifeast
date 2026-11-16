@@ -12,6 +12,11 @@ const LS_FAVORITES = "manifeast_favorites";
 const LS_MEAL_LOG = "manifeast_meal_log";
 const LS_DAILY_GOAL = "manifeast_daily_goal";
 const LS_GOAL_CELEBRATED = "manifeast_goal_celebrated";
+// Every recipe the user *opens* is persisted here with a sliding cap.
+// Keeps Cook Mode able to find a recipe even after other pages overwrite
+// `recipes` state or Inspire silently refreshes its pool in the background.
+const LS_RECENT = "manifeast_recent_recipes";
+const RECENT_RECIPES_CAP = 60;
 
 function readJSON(key, fallback) {
   try {
@@ -51,6 +56,7 @@ export function AppProvider({ children }) {
   const [goalCelebratedDate, setGoalCelebratedDate] = useState(() => {
     try { return localStorage.getItem(LS_GOAL_CELEBRATED) || ""; } catch { return ""; }
   });
+  const [recentRecipes, setRecentRecipes] = useState(() => readJSON(LS_RECENT, []));
   const [celebrating, setCelebrating] = useState(false);
   const [country, setCountry] = useState(() => {
     try {
@@ -68,6 +74,19 @@ export function AppProvider({ children }) {
   useLocalStorageSync(LS_DAILY_GOAL, dailyGoal);
   useLocalStorageSync(LS_GOAL_CELEBRATED, goalCelebratedDate, String);
   useLocalStorageSync(LS_COUNTRY, country, String);
+  useLocalStorageSync(LS_RECENT, recentRecipes);
+
+  // Durable per-recipe cache. Called whenever the user *opens* a recipe
+  // (card tap → RecipeDetail). Guarantees Cook Mode can still find it later
+  // even if other pages overwrite `recipes` state or the Inspire pool is
+  // refilled in the background.
+  const rememberRecipe = useCallback((recipe) => {
+    if (!recipe || !recipe.id) return;
+    setRecentRecipes((prev) => {
+      const filtered = prev.filter((r) => r && r.id !== recipe.id);
+      return [recipe, ...filtered].slice(0, RECENT_RECIPES_CAP);
+    });
+  }, []);
 
   const addShoppingItems = useCallback((items) => {
     setShoppingList((prev) => {
@@ -149,6 +168,7 @@ export function AppProvider({ children }) {
     () => ({
       ingredients, setIngredients,
       recipes, setRecipes,
+      recentRecipes, rememberRecipe,
       shoppingList, addShoppingItems, toggleShoppingItem, removeShoppingItem, clearShopping,
       favorites, toggleFavorite, isFavorite,
       mealLog, addMealToLog, removeMealFromLog, clearMealLog,
@@ -157,7 +177,8 @@ export function AppProvider({ children }) {
       country, setCountry,
     }),
     [
-      ingredients, recipes, shoppingList, favorites, mealLog, dailyGoal, celebrating, country,
+      ingredients, recipes, recentRecipes, shoppingList, favorites, mealLog, dailyGoal, celebrating, country,
+      rememberRecipe,
       addShoppingItems, toggleShoppingItem, removeShoppingItem, clearShopping,
       toggleFavorite, isFavorite,
       addMealToLog, removeMealFromLog, clearMealLog,

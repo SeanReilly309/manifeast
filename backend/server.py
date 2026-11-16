@@ -472,9 +472,55 @@ def _build_steps(raw_steps, fallback_instructions, ingredients_detailed) -> List
         (ing.name or "").lower(): (ing.quantity or "") for ing in (ingredients_detailed or [])
     }
 
+    # Common measurement units we want to treat as "just a quantity, not an
+    # ingredient name" when deciding whether an LLM entry needs enriching.
+    UNIT_WORDS = {
+        "tsp", "tbsp", "cup", "cups", "ml", "l", "g", "kg", "oz", "lb",
+        "pinch", "dash", "clove", "cloves", "slice", "slices", "piece",
+        "pieces", "stick", "sticks", "can", "cans", "handful", "sprig",
+        "sprigs", "bunch",
+    }
+
+    def _looks_like_only_quantity(entry: str) -> bool:
+        # True if the entry has zero "real" ingredient-name words — i.e. it's
+        # just numbers + fraction symbols + unit words (e.g. "2", "1/2 cup",
+        # "1 tsp"). We'll enrich these with the matching name from the detailed list.
+        tokens = re.findall(r"[a-zA-Z]+", entry.lower())
+        real_words = [t for t in tokens if t not in UNIT_WORDS]
+        return len(real_words) == 0
+
+    def _enrich_against_step_text(entry: str, step_text: str) -> str:
+        # Find an ingredient name from `ingredients_detailed` that appears in
+        # this step and glue the entry's quantity in front of it.
+        hay = f" {step_text.lower()} "
+        for name in ing_names:
+            key = name.split()[-1] if name else ""
+            if not key or len(key) < 3:
+                continue
+            if f" {key} " in hay or f" {key}s " in hay or f" {key}es " in hay:
+                return f"{entry} {name}".strip()
+        return entry
+
     def _step_ingredients_for(text: str, llm_list) -> List[str]:
         if isinstance(llm_list, list) and llm_list:
-            return [str(x).strip() for x in llm_list if isinstance(x, (str, int, float)) and str(x).strip()]
+            out: List[str] = []
+            seen = set()
+            for x in llm_list:
+                if not isinstance(x, (str, int, float)):
+                    continue
+                entry = str(x).strip()
+                if not entry:
+                    continue
+                # Enrich bare-quantity entries with the matching name from
+                # the full ingredient list — e.g. "2" → "2 eggs".
+                if _looks_like_only_quantity(entry):
+                    entry = _enrich_against_step_text(entry, text)
+                key = entry.lower()
+                if key in seen:
+                    continue
+                seen.add(key)
+                out.append(entry)
+            return out
         # Heuristic fallback: find any ingredient name appearing in the step
         # text and emit "quantity name" (e.g. "2 tbsp olive oil").
         t = f" {text.lower()} "

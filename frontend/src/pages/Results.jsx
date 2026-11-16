@@ -5,7 +5,7 @@ import { RecipeCard } from "../components/RecipeCard";
 import { useApp } from "../context/AppContext";
 
 export default function Results() {
-  const { recipes, ingredients } = useApp();
+  const { recipes, ingredients, rememberRecipe } = useApp();
   const navigate = useNavigate();
 
   if (!recipes || recipes.length === 0) {
@@ -30,7 +30,10 @@ export default function Results() {
     );
   }
 
-  const handleOpen = (recipe) => navigate(`/recipe/${recipe.id}`);
+  const handleOpen = (recipe) => {
+    rememberRecipe(recipe);
+    navigate(`/recipe/${recipe.id}`);
+  };
 
   return (
     <div className="space-y-10" data-testid="results-page">

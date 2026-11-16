@@ -5,7 +5,7 @@ import { RecipeCard } from "../components/RecipeCard";
 import { useApp } from "../context/AppContext";
 
 export default function Favorites() {
-  const { favorites } = useApp();
+  const { favorites, rememberRecipe } = useApp();
   const navigate = useNavigate();
 
   if (!favorites || favorites.length === 0) {
@@ -30,7 +30,10 @@ export default function Favorites() {
     );
   }
 
-  const handleOpen = (recipe) => navigate(`/recipe/${recipe.id}`);
+  const handleOpen = (recipe) => {
+    rememberRecipe(recipe);
+    navigate(`/recipe/${recipe.id}`);
+  };
 
   return (
     <div className="space-y-10" data-testid="favorites-page">

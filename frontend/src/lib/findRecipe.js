@@ -13,6 +13,7 @@
 const LS_INSPIRE_CACHE = "manifeast_inspire_cache";
 const LS_RECIPES = "wcie_recipes";
 const LS_FAVORITES = "manifeast_favorites";
+const LS_RECENT = "manifeast_recent_recipes";
 
 function safeParse(raw) {
   try { return JSON.parse(raw); } catch { return null; }
@@ -48,6 +49,7 @@ export function findRecipeById(id, { contextRecipes = [], contextFavorites = [] 
   return (
     contextRecipes.find(sameId) ||
     contextFavorites.find(sameId) ||
+    readLSList(LS_RECENT).find(sameId) ||
     readLSList(LS_RECIPES).find(sameId) ||
     readLSList(LS_FAVORITES).find(sameId) ||
     readInspirePools().find(sameId) ||

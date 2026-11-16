@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { ArrowLeft, Clock, ChefHat, ShoppingBasket, Check, Heart, Share2, Play } from "lucide-react";
 import { Button } from "../components/ui/button";
@@ -36,12 +36,19 @@ function buildShareText(recipe) {
 export default function RecipeDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { recipes, favorites, addShoppingItems, isFavorite, toggleFavorite } = useApp();
+  const { recipes, favorites, addShoppingItems, isFavorite, toggleFavorite, rememberRecipe } = useApp();
   const [scale, setScale] = useState(1);
   const recipe = useMemo(
     () => findRecipeById(id, { contextRecipes: recipes, contextFavorites: favorites }),
     [id, recipes, favorites],
   );
+
+  // Safety net — persist whatever recipe we successfully resolved so Cook
+  // Mode can always find it later even if Inspire silently refills its pool
+  // or another page overwrites `recipes` state in between.
+  useEffect(() => {
+    if (recipe) rememberRecipe(recipe);
+  }, [recipe, rememberRecipe]);
 
   if (!recipe) {
     return (

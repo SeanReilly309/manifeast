@@ -18,7 +18,7 @@ const SUGGESTIONS = [
 ];
 
 export default function Ask() {
-  const { setRecipes } = useApp();
+  const { setRecipes, rememberRecipe } = useApp();
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState([]);
@@ -79,7 +79,10 @@ export default function Ask() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.search]);
 
-  const handleOpen = (recipe) => navigate(`/recipe/${recipe.id}`);
+  const handleOpen = (recipe) => {
+    rememberRecipe(recipe);
+    navigate(`/recipe/${recipe.id}`);
+  };
 
   return (
     <div className="space-y-8" data-testid="ask-page">
