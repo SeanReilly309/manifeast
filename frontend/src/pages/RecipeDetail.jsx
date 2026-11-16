@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { ArrowLeft, Clock, ChefHat, ShoppingBasket, Check, Heart, Share2, Play } from "lucide-react";
 import { Button } from "../components/ui/button";
@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { useApp } from "../context/AppContext";
 import { recipeImage, fallbackFoodImage } from "../lib/recipeImage";
 import { scaleQuantity, scaleServings } from "../lib/scale";
+import { findRecipeById } from "../lib/findRecipe";
 
 const SCALES = [
   { value: 0.5, label: "½×" },
@@ -37,10 +38,10 @@ export default function RecipeDetail() {
   const navigate = useNavigate();
   const { recipes, favorites, addShoppingItems, isFavorite, toggleFavorite } = useApp();
   const [scale, setScale] = useState(1);
-  const recipe =
-    recipes?.find((r) => r.id === id) ||
-    favorites?.find((r) => r.id === id) ||
-    null;
+  const recipe = useMemo(
+    () => findRecipeById(id, { contextRecipes: recipes, contextFavorites: favorites }),
+    [id, recipes, favorites],
+  );
 
   if (!recipe) {
     return (
