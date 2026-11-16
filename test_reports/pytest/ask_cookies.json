@@ -1,0 +1,526 @@
+[
+ {
+  "id": "8807ddc8-79b2-4edd-b365-429cf68998d7",
+  "title": "Classic Chocolate Chip Cookies",
+  "emoji": "\ud83c\udf6a",
+  "difficulty": "easy",
+  "time_minutes": 30,
+  "description": "Soft and chewy, these classic chocolate chip cookies are a beloved treat for any occasion.",
+  "ingredients_used": [
+   "unsalted butter",
+   "brown sugar",
+   "granulated sugar",
+   "large eggs",
+   "vanilla extract",
+   "all-purpose flour",
+   "baking soda",
+   "salt",
+   "semisweet chocolate chips"
+  ],
+  "missing_ingredients": [],
+  "ingredients_detailed": [
+   {
+    "name": "unsalted butter",
+    "quantity": "1 cup (227g)"
+   },
+   {
+    "name": "brown sugar",
+    "quantity": "1 cup (220g)"
+   },
+   {
+    "name": "granulated sugar",
+    "quantity": "1/2 cup (100g)"
+   },
+   {
+    "name": "large eggs",
+    "quantity": "2"
+   },
+   {
+    "name": "vanilla extract",
+    "quantity": "1 tsp"
+   },
+   {
+    "name": "all-purpose flour",
+    "quantity": "2 1/4 cups (280g)"
+   },
+   {
+    "name": "baking soda",
+    "quantity": "1 tsp"
+   },
+   {
+    "name": "salt",
+    "quantity": "1/2 tsp"
+   },
+   {
+    "name": "semisweet chocolate chips",
+    "quantity": "2 cups (340g)"
+   }
+  ],
+  "instructions": [
+   "Preheat your oven to 180\u00b0C and line a baking sheet with parchment paper.",
+   "Cream together 1 cup (227g) unsalted butter, 1 cup (220g) brown sugar, and 1/2 cup (100g) granulated sugar until smooth.",
+   "Beat in 2 large eggs and 1 tsp of vanilla extract until well combined.",
+   "In a separate bowl, whisk together 2 1/4 cups (280g) all-purpose flour, 1 tsp baking soda, and 1/2 tsp salt.",
+   "Gradually add the flour mixture to the butter blend, mixing until just combined.",
+   "Fold in 2 cups (340g) of semisweet chocolate chips until evenly distributed.",
+   "Drop tablespoonfuls of dough onto the prepared baking sheet, spacing them 2 inches apart.",
+   "Bake in the preheated oven for 10-12 minutes or until golden brown around the edges."
+  ],
+  "steps": [
+   {
+    "number": 1,
+    "instruction": "Preheat your oven to 180\u00b0C and line a baking sheet with parchment paper.",
+    "ingredients": [],
+    "heat": "",
+    "temperature_c": 180,
+    "duration_minutes": 10,
+    "doneness_cue": ""
+   },
+   {
+    "number": 2,
+    "instruction": "Cream together 1 cup (227g) unsalted butter, 1 cup (220g) brown sugar, and 1/2 cup (100g) granulated sugar until smooth.",
+    "ingredients": [
+     "unsalted butter",
+     "brown sugar",
+     "granulated sugar"
+    ],
+    "heat": "",
+    "temperature_c": null,
+    "duration_minutes": 5,
+    "doneness_cue": ""
+   },
+   {
+    "number": 3,
+    "instruction": "Beat in 2 large eggs and 1 tsp of vanilla extract until well combined.",
+    "ingredients": [
+     "large eggs",
+     "vanilla extract"
+    ],
+    "heat": "",
+    "temperature_c": null,
+    "duration_minutes": 2,
+    "doneness_cue": ""
+   },
+   {
+    "number": 4,
+    "instruction": "In a separate bowl, whisk together 2 1/4 cups (280g) all-purpose flour, 1 tsp baking soda, and 1/2 tsp salt.",
+    "ingredients": [
+     "all-purpose flour",
+     "baking soda",
+     "salt"
+    ],
+    "heat": "",
+    "temperature_c": null,
+    "duration_minutes": 5,
+    "doneness_cue": ""
+   },
+   {
+    "number": 5,
+    "instruction": "Gradually add the flour mixture to the butter blend, mixing until just combined.",
+    "ingredients": [
+     "all-purpose flour",
+     "baking soda",
+     "salt"
+    ],
+    "heat": "",
+    "temperature_c": null,
+    "duration_minutes": 3,
+    "doneness_cue": ""
+   },
+   {
+    "number": 6,
+    "instruction": "Fold in 2 cups (340g) of semisweet chocolate chips until evenly distributed.",
+    "ingredients": [
+     "semisweet chocolate chips"
+    ],
+    "heat": "",
+    "temperature_c": null,
+    "duration_minutes": 2,
+    "doneness_cue": ""
+   },
+   {
+    "number": 7,
+    "instruction": "Drop tablespoonfuls of dough onto the prepared baking sheet, spacing them 2 inches apart.",
+    "ingredients": [],
+    "heat": "",
+    "temperature_c": null,
+    "duration_minutes": 2,
+    "doneness_cue": ""
+   },
+   {
+    "number": 8,
+    "instruction": "Bake in the preheated oven for 10-12 minutes or until golden brown around the edges.",
+    "ingredients": [],
+    "heat": "",
+    "temperature_c": 180,
+    "duration_minutes": 12,
+    "doneness_cue": "golden brown"
+   }
+  ],
+  "nutrition": {
+   "calories": 150,
+   "protein_g": 2,
+   "fat_g": 7,
+   "carbs_g": 22
+  },
+  "servings": 24,
+  "yield_text": "Makes about 24 cookies",
+  "image_query": "chocolate chip cookies, fresh out of oven, close up"
+ },
+ {
+  "id": "ad7cb6dc-1d71-4e99-a5e6-a777b002c81b",
+  "title": "Oatmeal Chocolate Chip Cookies",
+  "emoji": "\ud83e\udd63\ud83c\udf6a",
+  "difficulty": "easy",
+  "time_minutes": 35,
+  "description": "Wholesome oatmeal chocolate chip cookies offer a delightful chewiness paired with rich chocolate chunks.",
+  "ingredients_used": [
+   "unsalted butter",
+   "brown sugar",
+   "granulated sugar",
+   "large eggs",
+   "vanilla extract",
+   "all-purpose flour",
+   "old-fashioned oats",
+   "baking soda",
+   "salt",
+   "semisweet chocolate chips"
+  ],
+  "missing_ingredients": [],
+  "ingredients_detailed": [
+   {
+    "name": "unsalted butter",
+    "quantity": "1 cup (227g)"
+   },
+   {
+    "name": "brown sugar",
+    "quantity": "3/4 cup (165g)"
+   },
+   {
+    "name": "granulated sugar",
+    "quantity": "1/2 cup (100g)"
+   },
+   {
+    "name": "large eggs",
+    "quantity": "2"
+   },
+   {
+    "name": "vanilla extract",
+    "quantity": "1 tsp"
+   },
+   {
+    "name": "all-purpose flour",
+    "quantity": "1 1/2 cups (190g)"
+   },
+   {
+    "name": "old-fashioned oats",
+    "quantity": "1 1/2 cups (135g)"
+   },
+   {
+    "name": "baking soda",
+    "quantity": "1 tsp"
+   },
+   {
+    "name": "salt",
+    "quantity": "1/2 tsp"
+   },
+   {
+    "name": "semisweet chocolate chips",
+    "quantity": "1 cup (170g)"
+   }
+  ],
+  "instructions": [
+   "Preheat your oven to 180\u00b0C and line a baking sheet with parchment paper.",
+   "Cream together 1 cup (227g) unsalted butter, 3/4 cup (165g) brown sugar, and 1/2 cup (100g) granulated sugar until fluffy.",
+   "Beat in 2 large eggs and 1 tsp of vanilla extract until the mixture is well combined.",
+   "In another bowl, combine 1 1/2 cups (190g) all-purpose flour, 1 1/2 cups (135g) old-fashioned oats, 1 tsp baking soda, and 1/2 tsp salt.",
+   "Gradually add the dry ingredients to the wet mixture, mixing gently until combined.",
+   "Fold in 1 cup (170g) semisweet chocolate chips until evenly mixed throughout the cookie dough.",
+   "Scoop tablespoon-sized portions of dough onto the prepared baking sheet, leaving space in between.",
+   "Bake in the preheated oven for 10-12 minutes until the cookies are golden brown."
+  ],
+  "steps": [
+   {
+    "number": 1,
+    "instruction": "Preheat your oven to 180\u00b0C and line a baking sheet with parchment paper.",
+    "ingredients": [],
+    "heat": "",
+    "temperature_c": 180,
+    "duration_minutes": 10,
+    "doneness_cue": ""
+   },
+   {
+    "number": 2,
+    "instruction": "Cream together 1 cup (227g) unsalted butter, 3/4 cup (165g) brown sugar, and 1/2 cup (100g) granulated sugar until fluffy.",
+    "ingredients": [
+     "unsalted butter",
+     "brown sugar",
+     "granulated sugar"
+    ],
+    "heat": "",
+    "temperature_c": null,
+    "duration_minutes": 5,
+    "doneness_cue": ""
+   },
+   {
+    "number": 3,
+    "instruction": "Beat in 2 large eggs and 1 tsp of vanilla extract until the mixture is well combined.",
+    "ingredients": [
+     "large eggs",
+     "vanilla extract"
+    ],
+    "heat": "",
+    "temperature_c": null,
+    "duration_minutes": 2,
+    "doneness_cue": ""
+   },
+   {
+    "number": 4,
+    "instruction": "In another bowl, combine 1 1/2 cups (190g) all-purpose flour, 1 1/2 cups (135g) old-fashioned oats, 1 tsp baking soda, and 1/2 tsp salt.",
+    "ingredients": [
+     "all-purpose flour",
+     "old-fashioned oats",
+     "baking soda",
+     "salt"
+    ],
+    "heat": "",
+    "temperature_c": null,
+    "duration_minutes": 5,
+    "doneness_cue": ""
+   },
+   {
+    "number": 5,
+    "instruction": "Gradually add the dry ingredients to the wet mixture, mixing gently until combined.",
+    "ingredients": [
+     "all-purpose flour",
+     "old-fashioned oats",
+     "baking soda",
+     "salt"
+    ],
+    "heat": "",
+    "temperature_c": null,
+    "duration_minutes": 3,
+    "doneness_cue": ""
+   },
+   {
+    "number": 6,
+    "instruction": "Fold in 1 cup (170g) semisweet chocolate chips until evenly mixed throughout the cookie dough.",
+    "ingredients": [
+     "semisweet chocolate chips"
+    ],
+    "heat": "",
+    "temperature_c": null,
+    "duration_minutes": 2,
+    "doneness_cue": ""
+   },
+   {
+    "number": 7,
+    "instruction": "Scoop tablespoon-sized portions of dough onto the prepared baking sheet, leaving space in between.",
+    "ingredients": [],
+    "heat": "",
+    "temperature_c": null,
+    "duration_minutes": 2,
+    "doneness_cue": ""
+   },
+   {
+    "number": 8,
+    "instruction": "Bake in the preheated oven for 10-12 minutes until the cookies are golden brown.",
+    "ingredients": [],
+    "heat": "",
+    "temperature_c": 180,
+    "duration_minutes": 12,
+    "doneness_cue": "golden brown"
+   }
+  ],
+  "nutrition": {
+   "calories": 160,
+   "protein_g": 2,
+   "fat_g": 7,
+   "carbs_g": 24
+  },
+  "servings": 24,
+  "yield_text": "Makes about 24 cookies",
+  "image_query": "oatmeal chocolate chip cookies, close up, chewy"
+ },
+ {
+  "id": "c28bcee1-400d-491d-8240-7643be321166",
+  "title": "Double Chocolate Chip Cookies",
+  "emoji": "\ud83c\udf6b\ud83c\udf6a",
+  "difficulty": "medium",
+  "time_minutes": 40,
+  "description": "Indulge in rich double chocolate chip cookies that are soft, fudgy, and perfect for chocolate lovers.",
+  "ingredients_used": [
+   "unsalted butter",
+   "brown sugar",
+   "granulated sugar",
+   "large eggs",
+   "vanilla extract",
+   "all-purpose flour",
+   "cocoa powder",
+   "baking soda",
+   "salt",
+   "semisweet chocolate chips",
+   "white chocolate chips"
+  ],
+  "missing_ingredients": [],
+  "ingredients_detailed": [
+   {
+    "name": "unsalted butter",
+    "quantity": "1 cup (227g)"
+   },
+   {
+    "name": "brown sugar",
+    "quantity": "1 cup (220g)"
+   },
+   {
+    "name": "granulated sugar",
+    "quantity": "1/2 cup (100g)"
+   },
+   {
+    "name": "large eggs",
+    "quantity": "2"
+   },
+   {
+    "name": "vanilla extract",
+    "quantity": "1 tsp"
+   },
+   {
+    "name": "all-purpose flour",
+    "quantity": "1 1/2 cups (190g)"
+   },
+   {
+    "name": "cocoa powder",
+    "quantity": "1/2 cup (50g)"
+   },
+   {
+    "name": "baking soda",
+    "quantity": "1 tsp"
+   },
+   {
+    "name": "salt",
+    "quantity": "1/2 tsp"
+   },
+   {
+    "name": "semisweet chocolate chips",
+    "quantity": "1 cup (170g)"
+   },
+   {
+    "name": "white chocolate chips",
+    "quantity": "1 cup (170g)"
+   }
+  ],
+  "instructions": [
+   "Preheat your oven to 180\u00b0C and line a baking sheet with parchment paper.",
+   "Cream together 1 cup (227g) unsalted butter, 1 cup (220g) brown sugar, and 1/2 cup (100g) granulated sugar until fluffy and pale in color.",
+   "Beat in 2 large eggs and 1 tsp of vanilla extract until well combined and smooth.",
+   "In another bowl, whisk together 1 1/2 cups (190g) all-purpose flour, 1/2 cup (50g) cocoa powder, 1 tsp baking soda, and 1/2 tsp salt.",
+   "Gradually blend the dry ingredients into the wet mixture until just combined, avoiding overmixing.",
+   "Fold in 1 cup (170g) semisweet chocolate chips and 1 cup (170g) white chocolate chips until they are evenly distributed.",
+   "Drop rounded tablespoonfuls of dough onto the prepared baking sheet, spacing them about 2 inches apart.",
+   "Bake in the preheated oven for 10-12 minutes or until the cookies have slightly puffed and are set."
+  ],
+  "steps": [
+   {
+    "number": 1,
+    "instruction": "Preheat your oven to 180\u00b0C and line a baking sheet with parchment paper.",
+    "ingredients": [],
+    "heat": "",
+    "temperature_c": 180,
+    "duration_minutes": 10,
+    "doneness_cue": ""
+   },
+   {
+    "number": 2,
+    "instruction": "Cream together 1 cup (227g) unsalted butter, 1 cup (220g) brown sugar, and 1/2 cup (100g) granulated sugar until fluffy and pale in color.",
+    "ingredients": [
+     "unsalted butter",
+     "brown sugar",
+     "granulated sugar"
+    ],
+    "heat": "",
+    "temperature_c": null,
+    "duration_minutes": 5,
+    "doneness_cue": ""
+   },
+   {
+    "number": 3,
+    "instruction": "Beat in 2 large eggs and 1 tsp of vanilla extract until well combined and smooth.",
+    "ingredients": [
+     "large eggs",
+     "vanilla extract"
+    ],
+    "heat": "",
+    "temperature_c": null,
+    "duration_minutes": 2,
+    "doneness_cue": ""
+   },
+   {
+    "number": 4,
+    "instruction": "In another bowl, whisk together 1 1/2 cups (190g) all-purpose flour, 1/2 cup (50g) cocoa powder, 1 tsp baking soda, and 1/2 tsp salt.",
+    "ingredients": [
+     "all-purpose flour",
+     "cocoa powder",
+     "baking soda",
+     "salt"
+    ],
+    "heat": "",
+    "temperature_c": null,
+    "duration_minutes": 5,
+    "doneness_cue": ""
+   },
+   {
+    "number": 5,
+    "instruction": "Gradually blend the dry ingredients into the wet mixture until just combined, avoiding overmixing.",
+    "ingredients": [
+     "all-purpose flour",
+     "cocoa powder",
+     "baking soda",
+     "salt"
+    ],
+    "heat": "",
+    "temperature_c": null,
+    "duration_minutes": 3,
+    "doneness_cue": ""
+   },
+   {
+    "number": 6,
+    "instruction": "Fold in 1 cup (170g) semisweet chocolate chips and 1 cup (170g) white chocolate chips until they are evenly distributed.",
+    "ingredients": [
+     "semisweet chocolate chips",
+     "white chocolate chips"
+    ],
+    "heat": "",
+    "temperature_c": null,
+    "duration_minutes": 2,
+    "doneness_cue": ""
+   },
+   {
+    "number": 7,
+    "instruction": "Drop rounded tablespoonfuls of dough onto the prepared baking sheet, spacing them about 2 inches apart.",
+    "ingredients": [],
+    "heat": "",
+    "temperature_c": null,
+    "duration_minutes": 2,
+    "doneness_cue": ""
+   },
+   {
+    "number": 8,
+    "instruction": "Bake in the preheated oven for 10-12 minutes or until the cookies have slightly puffed and are set.",
+    "ingredients": [],
+    "heat": "",
+    "temperature_c": 180,
+    "duration_minutes": 12,
+    "doneness_cue": "set"
+   }
+  ],
+  "nutrition": {
+   "calories": 180,
+   "protein_g": 3,
+   "fat_g": 8,
+   "carbs_g": 25
+  },
+  "servings": 24,
+  "yield_text": "Makes about 24 cookies",
+  "image_query": "double chocolate chip cookies, rich and fudgy, close up"
+ }
+]

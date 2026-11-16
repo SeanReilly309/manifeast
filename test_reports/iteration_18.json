@@ -1,0 +1,48 @@
+{
+  "summary": "Iteration 18 tested the structured CookStep model on the backend and frontend. BACKEND: /api/ask-recipes ('chicken stir fry' and 'chocolate chip cookies') and /api/suggest ([chicken, rice, garlic, onion, soy sauce]) PASS. Every recipe has >=3 steps numbered 1..n with instruction and ingredients. Heat ratio was 0.73 on stir fry, and every cookie recipe has temperature_c=180. duration_minutes is present. instructions[] equals steps[].instruction (back-compat OK). Step ingredients match ingredients_detailed in 119/122 cases. Regression: 15/15 non-LLM tests in test_security.py pass (CORS, Deps, Gitignore, SizeCaps, GenericErrors). FAIL: /api/inspire dinner count=12 refresh=true returned 502 from ingress after 60s. Reproduced again with snack count=12 on a cache miss. The backend did finish later, wrote the cache and returned only 9 recipes (not 12). The structured data inside those recipes is good. FRONTEND: all 5 Inspire categories (breakfast, lunch, dinner, snack, dessert) passed: card -> RecipeDetail -> Start cooking -> Cook Mode. Step counts in the UI match the data, and no 'No recipe to cook' text appeared. Prev is disabled on step 1, Finish shows on the last step and returns to RecipeDetail. On every step, the heat, duration and temp chips and the cook-timer-clock (mm:ss from duration_minutes) matched the recipe data, and cook-step-ingredient-0 equals steps[i].ingredients[0] verbatim. A deterministic injected recipe confirmed 'Medium-High heat', a 06:00 clock and '300g chicken breast'. A legacy recipe with only instructions renders 3 step cards, with no fallback banner and a 25:00 timer from the regex. Mobile 390px layout is OK.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "POST /api/inspire (count=12, cache miss or refresh=true)", "issue": "The LLM call now takes >60s because the structured steps for 12 recipes are a lot of output tokens, so the K8s ingress returns 502 at 60.2s. Reproduced 2/2 (dinner refresh=true, snack cache miss). Breakfast took 51s on its first load from the UI, which is borderline. Consequences: (1) the Shuffle/force path and the background refillPool (refresh=true) will 502 often, and refill fails silently; (2) attemptWithRetry retries after a 502 while the first LLM call is still running, so the same category gets a second, duplicate LLM call (wasted cost, and it can 502 again). Mitigation: split the generation into 2-3 parallel LLM calls of 4-6 recipes with asyncio.gather and merge/dedupe the titles; or lower POOL_SIZE; and/or add an in-flight dedupe lock per category so a retry waits for the running call.", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "POST /api/inspire", "issue": "Asked for count=12, but only 8-9 recipes come back (cache: lunch=8, dinner=9, snack=9, breakfast=9; the UI shows '9 breakfast ideas'). The LLM under-delivers on long structured output. Parallel smaller batches would also fix this."},
+      {"endpoint": "DIRECT_INSTRUCTIONS_RULE prompt", "issue": "The LLM gives duration_minutes to prep steps ('Drain and rinse chickpeas' 3 min, 'Chop cucumber' 5 min, 'Preheat oven' 5 min, 'Combine mixture' 5 min), so Cook Mode shows timers on steps that aren't timed. Suggest: duration only for passive cook/bake/simmer/rest/marinate steps."},
+      {"endpoint": "_build_steps step ingredients", "issue": "Step ingredients are not always the verbatim measured strings. Examples: lunch 'cucumber', 'canned chickpeas', 'salt' with no quantity; dessert 'batter from previous steps' (made up, not an ingredient); suggest '400g chicken' when the ingredient name is 'chicken breast'. Suggest: map each entry back to ingredients_detailed (match on name, emit 'qty name') and drop entries that don't match."},
+      {"endpoint": "_normalise_heat", "issue": "Values like 'medium heat' or 'med-high' normalise to '' and the heat is silently dropped. Strip a trailing 'heat' and accept common aliases."},
+      {"endpoint": "_build_recipe", "issue": "instructions is only derived from steps when the LLM leaves it empty. If the LLM returns both and they differ, they can drift apart. They were identical in every sample tested, but deriving it always from steps is safer."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "Inspire Shuffle / refillPool / first load on cache miss", "issue": "Backend 502s at 60s (see backend critical). The UI load path worked in this run (51s, and other categories were already cached), but force refresh will often fail.", "affected_selectors": ["[data-testid=inspire-shuffle-btn]", "[data-testid=inspire-error]"]}
+    ],
+    "design_issues": [
+      {"screen": "Cook Mode 'You'll use' list", "issues": ["The `capitalize` class turns measured strings into '2 Cups (240g) All-purpose Flour' / '300g Salmon Fillet'. Capitalise only the first letter (e.g. first-letter:uppercase)."]},
+      {"screen": "RecipeDetail / Cook Mode header", "issues": ["The same fallback photo (sliced chicken on pasta) is used for unrelated dishes such as Spicy Chickpea Salad and Chocolate Lava Cake. The Inspire cards show only gradient placeholders, with no photos."]},
+      {"screen": "Cook Mode legacy recipes", "issues": ["For legacy string-only recipes no meta chips are derived (e.g. 'Preheat oven to 180°C' shows no temp chip). Acceptable, but a regex for °C / heat words would bring them up to the structured look."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_structured_steps.py", "/app/backend/tests/diag_cache_steps.py", "/app/tests/cook_flow_snippet.py", "/app/test_reports/pytest/structured_steps.xml", "/app/test_reports/pytest/security_iter18.xml"],
+  "action_items": [
+    "HIGH: make /api/inspire return in under ~45s for count=12 with structured steps: parallel LLM batches (e.g. 3x4 recipes via asyncio.gather) or a smaller POOL_SIZE, plus a per-category in-flight lock so a frontend retry after a 502 doesn't start a second LLM call.",
+    "Make sure inspire actually returns the requested count (currently 8-9 of 12).",
+    "Prompt: duration_minutes only for timed cook/bake/rest steps, not prep (chop/drain/preheat/combine).",
+    "Normalise step.ingredients against ingredients_detailed (emit 'qty name', drop made-up entries like 'batter from previous steps').",
+    "_normalise_heat: accept 'medium heat', 'med-high' etc.",
+    "Cook Mode ingredient list: replace CSS capitalize with first-letter-only so the measurements read naturally."
+  ],
+  "critical_code_review_comments": [
+    "server.py has 1220 lines; split the recipe prompt/build helpers (_build_steps, _build_recipe, prompts) into a recipes module.",
+    "_coerce_opt_int has no range check, so a negative or absurd temperature_c/duration_minutes (e.g. 'duration': '2-4 hours' -> 2) passes through. Hours aren't converted to minutes. Clamp the ranges and handle hours.",
+    "The heuristic backfill in _step_ingredients_for keys on the last word of the name only ('salt (to taste)' -> 'taste)'); strip parentheses first.",
+    "CookMode: the timer resets whenever timerSeconds changes; fine. stepIngredients maps the structured strings to {name, quantity:''}, so the quantity column is never used for structured steps; OK, but the styling is inconsistent with the legacy path."
+  ],
+  "updated_files": ["/app/backend/tests/test_structured_steps.py", "/app/backend/tests/diag_cache_steps.py", "/app/tests/cook_flow_snippet.py"],
+  "success_rate": {"backend": "75% of structured-steps tests (3/4; inspire count=12 fails with a 502); 15/15 security regression", "frontend": "100% (5/5 categories, nav, meta chips, timer, per-step ingredients, legacy back-compat, mobile)"},
+  "seed_data_creation": "No DB seed data. The Inspire refresh calls overwrote the inspire_cache docs for dinner and snack (the normal cache behaviour). The localStorage-only TEST_legacy_1 / TEST_struct_1 were injected in the test browser and then removed.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Ingress timeout is 60s; inspire with count=12 and structured steps currently runs past it on a cache miss. Use diag_cache_steps.py (read-only) to inspect the inspire_cache step quality without making LLM calls. cook_flow_snippet.py has run_category(page, cat): exec it inside browser_automation to walk Cook Mode and compare the UI with the recipe from the manifeast_inspire_cache localStorage. Rate limits: ask-recipes/suggest/inspire are 60/hour per IP. Tab testids: inspire-tab-{breakfast,lunch,dinner,snack,dessert}; RecipeDetail start button is start-cook-mode-btn.",
+  "rca of the issue": "Inspire 502: the prompt now asks for 12 recipes x ~6-8 structured step objects (each with ingredients, heat, temp, duration and cue), which is roughly 2-3x more output tokens than the old string instructions. gpt-4o-mini streams them in >60s, and the ingress closes the connection at 60s (curl: 502 at 60.257s). The backend keeps running and writes the cache later (cache doc for snack created at the request start time, holding 9 recipes). Reproduce: curl -X POST $URL/api/inspire -d '{\"category\":\"dinner\",\"count\":12,\"refresh\":true}'. Mitigation: parallel smaller batches, or a smaller pool, plus a per-category in-flight dedupe."
+}

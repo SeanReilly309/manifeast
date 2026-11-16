@@ -1,0 +1,608 @@
+[
+ {
+  "id": "3b9fa3da-63de-42bc-9eef-04c796ab6c0b",
+  "title": "Garlic Soy Chicken Stir-Fry",
+  "emoji": "\ud83c\udf57",
+  "difficulty": "easy",
+  "time_minutes": 25,
+  "description": "A quick stir-fry with savory soy sauce and garlic.",
+  "ingredients_used": [
+   "chicken",
+   "garlic",
+   "onion",
+   "soy sauce"
+  ],
+  "missing_ingredients": [],
+  "ingredients_detailed": [
+   {
+    "name": "chicken",
+    "quantity": "400g"
+   },
+   {
+    "name": "onion",
+    "quantity": "1 medium, sliced"
+   },
+   {
+    "name": "garlic",
+    "quantity": "3 cloves, minced"
+   },
+   {
+    "name": "soy sauce",
+    "quantity": "2 tbsp"
+   },
+   {
+    "name": "olive oil",
+    "quantity": "1 tbsp"
+   }
+  ],
+  "instructions": [
+   "Heat 1 tbsp olive oil in a large pan over medium-high heat.",
+   "Add 400g chicken and cook until browned and cooked through, about 8 minutes.",
+   "Stir in 1 sliced onion and 3 minced garlic cloves, and cook until fragrant, around 2 minutes.",
+   "Pour 2 tbsp soy sauce and stir-fry to combine well for 2 more minutes."
+  ],
+  "steps": [
+   {
+    "number": 1,
+    "instruction": "Heat 1 tbsp olive oil in a large pan over medium-high heat.",
+    "ingredients": [
+     "1 tbsp olive oil"
+    ],
+    "heat": "medium-high",
+    "temperature_c": null,
+    "duration_minutes": null,
+    "doneness_cue": ""
+   },
+   {
+    "number": 2,
+    "instruction": "Add 400g chicken and cook until browned and cooked through, about 8 minutes.",
+    "ingredients": [
+     "400g chicken"
+    ],
+    "heat": "medium-high",
+    "temperature_c": null,
+    "duration_minutes": 8,
+    "doneness_cue": "cooked through"
+   },
+   {
+    "number": 3,
+    "instruction": "Stir in 1 sliced onion and 3 minced garlic cloves, and cook until fragrant, around 2 minutes.",
+    "ingredients": [
+     "1 medium onion, sliced",
+     "3 cloves garlic, minced"
+    ],
+    "heat": "medium-high",
+    "temperature_c": null,
+    "duration_minutes": 2,
+    "doneness_cue": "fragrant"
+   },
+   {
+    "number": 4,
+    "instruction": "Pour 2 tbsp soy sauce and stir-fry to combine well for 2 more minutes.",
+    "ingredients": [
+     "2 tbsp soy sauce"
+    ],
+    "heat": "medium-high",
+    "temperature_c": null,
+    "duration_minutes": 2,
+    "doneness_cue": "golden and mixed well"
+   }
+  ],
+  "nutrition": {
+   "calories": 350,
+   "protein_g": 35,
+   "fat_g": 10,
+   "carbs_g": 10
+  },
+  "servings": 2,
+  "yield_text": "Serves 2",
+  "image_query": "stir-fry chicken, close up"
+ },
+ {
+  "id": "aa31766f-6852-4716-800c-e34e11ff3cc8",
+  "title": "Soy Garlic Chicken Rice Bowl",
+  "emoji": "\ud83c\udf5a",
+  "difficulty": "medium",
+  "time_minutes": 40,
+  "description": "A hearty rice bowl topped with tender chicken and savory soy garlic sauce.",
+  "ingredients_used": [
+   "chicken",
+   "rice",
+   "garlic",
+   "onion",
+   "soy sauce"
+  ],
+  "missing_ingredients": [],
+  "ingredients_detailed": [
+   {
+    "name": "chicken breast",
+    "quantity": "400g"
+   },
+   {
+    "name": "rice",
+    "quantity": "200g"
+   },
+   {
+    "name": "onion",
+    "quantity": "1 medium, chopped"
+   },
+   {
+    "name": "garlic",
+    "quantity": "4 cloves, minced"
+   },
+   {
+    "name": "soy sauce",
+    "quantity": "3 tbsp"
+   },
+   {
+    "name": "olive oil",
+    "quantity": "2 tbsp"
+   }
+  ],
+  "instructions": [
+   "Cook 200g rice according to package instructions.",
+   "Heat 2 tbsp olive oil in a pan over medium-high heat.",
+   "Add 400g chicken and cook until browned and cooked through, about 10 minutes.",
+   "Stir in 1 chopped onion and 4 minced garlic cloves, cooking until soft, about 5 minutes.",
+   "Add 3 tbsp soy sauce and mix well for 2 minutes.",
+   "Serve chicken over fluffed rice."
+  ],
+  "steps": [
+   {
+    "number": 1,
+    "instruction": "Cook 200g rice according to package instructions.",
+    "ingredients": [
+     "200g rice"
+    ],
+    "heat": "",
+    "temperature_c": null,
+    "duration_minutes": 20,
+    "doneness_cue": "fluffy"
+   },
+   {
+    "number": 2,
+    "instruction": "Heat 2 tbsp olive oil in a pan over medium-high heat.",
+    "ingredients": [
+     "2 tbsp olive oil"
+    ],
+    "heat": "medium-high",
+    "temperature_c": null,
+    "duration_minutes": null,
+    "doneness_cue": ""
+   },
+   {
+    "number": 3,
+    "instruction": "Add 400g chicken and cook until browned and cooked through, about 10 minutes.",
+    "ingredients": [
+     "400g chicken"
+    ],
+    "heat": "medium-high",
+    "temperature_c": null,
+    "duration_minutes": 10,
+    "doneness_cue": "cooked through"
+   },
+   {
+    "number": 4,
+    "instruction": "Stir in 1 chopped onion and 4 minced garlic cloves, cooking until soft, about 5 minutes.",
+    "ingredients": [
+     "1 medium onion, chopped",
+     "4 cloves garlic, minced"
+    ],
+    "heat": "medium-high",
+    "temperature_c": null,
+    "duration_minutes": 5,
+    "doneness_cue": "soft"
+   },
+   {
+    "number": 5,
+    "instruction": "Add 3 tbsp soy sauce and mix well for 2 minutes.",
+    "ingredients": [
+     "3 tbsp soy sauce"
+    ],
+    "heat": "medium-high",
+    "temperature_c": null,
+    "duration_minutes": 2,
+    "doneness_cue": "well combined"
+   },
+   {
+    "number": 6,
+    "instruction": "Serve chicken over fluffed rice.",
+    "ingredients": [],
+    "heat": "",
+    "temperature_c": null,
+    "duration_minutes": null,
+    "doneness_cue": ""
+   }
+  ],
+  "nutrition": {
+   "calories": 500,
+   "protein_g": 41,
+   "fat_g": 15,
+   "carbs_g": 49
+  },
+  "servings": 2,
+  "yield_text": "Serves 2",
+  "image_query": "chicken rice bowl, vibrant colors"
+ },
+ {
+  "id": "3dc219e8-78f7-434f-bf60-db020691fb90",
+  "title": "Garlic Chicken & Rice Pilaf",
+  "emoji": "\ud83c\udf5b",
+  "difficulty": "medium",
+  "time_minutes": 35,
+  "description": "A flavorful rice pilaf cooked with juicy chicken and aromatics.",
+  "ingredients_used": [
+   "chicken",
+   "rice",
+   "garlic",
+   "onion"
+  ],
+  "missing_ingredients": [],
+  "ingredients_detailed": [
+   {
+    "name": "chicken breast",
+    "quantity": "400g"
+   },
+   {
+    "name": "rice",
+    "quantity": "200g"
+   },
+   {
+    "name": "onion",
+    "quantity": "1 medium, diced"
+   },
+   {
+    "name": "garlic",
+    "quantity": "4 cloves, minced"
+   },
+   {
+    "name": "olive oil",
+    "quantity": "2 tbsp"
+   },
+   {
+    "name": "chicken broth",
+    "quantity": "500 ml"
+   }
+  ],
+  "instructions": [
+   "Heat 2 tbsp olive oil in a saucepan over medium heat.",
+   "Add 400g chicken and brown on all sides, about 7 minutes.",
+   "Stir in 1 diced onion and 4 minced garlic cloves, saut\u00e9eing until fragrant, about 3 minutes.",
+   "Add 200g rice and stir to coat with oil, about 1 minute.",
+   "Pour 500 ml chicken broth, bring to a simmer, cover, and reduce heat to low.",
+   "Cook until rice is tender and liquid is absorbed, about 15 minutes."
+  ],
+  "steps": [
+   {
+    "number": 1,
+    "instruction": "Heat 2 tbsp olive oil in a saucepan over medium heat.",
+    "ingredients": [
+     "2 tbsp olive oil"
+    ],
+    "heat": "medium",
+    "temperature_c": null,
+    "duration_minutes": null,
+    "doneness_cue": ""
+   },
+   {
+    "number": 2,
+    "instruction": "Add 400g chicken and brown on all sides, about 7 minutes.",
+    "ingredients": [
+     "400g chicken"
+    ],
+    "heat": "medium",
+    "temperature_c": null,
+    "duration_minutes": 7,
+    "doneness_cue": "browned"
+   },
+   {
+    "number": 3,
+    "instruction": "Stir in 1 diced onion and 4 minced garlic cloves, saut\u00e9eing until fragrant, about 3 minutes.",
+    "ingredients": [
+     "1 medium onion, diced",
+     "4 cloves garlic, minced"
+    ],
+    "heat": "medium",
+    "temperature_c": null,
+    "duration_minutes": 3,
+    "doneness_cue": "fragrant"
+   },
+   {
+    "number": 4,
+    "instruction": "Add 200g rice and stir to coat with oil, about 1 minute.",
+    "ingredients": [
+     "200g rice"
+    ],
+    "heat": "medium",
+    "temperature_c": null,
+    "duration_minutes": 1,
+    "doneness_cue": "coated"
+   },
+   {
+    "number": 5,
+    "instruction": "Pour 500 ml chicken broth, bring to a simmer, cover, and reduce heat to low.",
+    "ingredients": [
+     "500 ml chicken broth"
+    ],
+    "heat": "low",
+    "temperature_c": null,
+    "duration_minutes": null,
+    "doneness_cue": ""
+   },
+   {
+    "number": 6,
+    "instruction": "Cook until rice is tender and liquid is absorbed, about 15 minutes.",
+    "ingredients": [
+     "200g rice"
+    ],
+    "heat": "low",
+    "temperature_c": null,
+    "duration_minutes": 15,
+    "doneness_cue": "rice tender"
+   }
+  ],
+  "nutrition": {
+   "calories": 560,
+   "protein_g": 40,
+   "fat_g": 12,
+   "carbs_g": 65
+  },
+  "servings": 2,
+  "yield_text": "Serves 2",
+  "image_query": "rice pilaf with chicken, aromatic"
+ },
+ {
+  "id": "720d302b-347d-42c6-b2a9-5a8c25ed6244",
+  "title": "Chicken Fried Rice",
+  "emoji": "\ud83e\udd61",
+  "difficulty": "medium",
+  "time_minutes": 30,
+  "description": "Classic fried rice with chicken pieces and a touch of soy sauce.",
+  "ingredients_used": [
+   "chicken",
+   "rice",
+   "garlic",
+   "onion",
+   "soy sauce"
+  ],
+  "missing_ingredients": [
+   "eggs"
+  ],
+  "ingredients_detailed": [
+   {
+    "name": "cooked rice",
+    "quantity": "300g"
+   },
+   {
+    "name": "chicken",
+    "quantity": "200g, diced"
+   },
+   {
+    "name": "onion",
+    "quantity": "1 medium, finely chopped"
+   },
+   {
+    "name": "garlic",
+    "quantity": "3 cloves, minced"
+   },
+   {
+    "name": "soy sauce",
+    "quantity": "2 tbsp"
+   },
+   {
+    "name": "olive oil",
+    "quantity": "2 tbsp"
+   },
+   {
+    "name": "eggs",
+    "quantity": "2, beaten"
+   }
+  ],
+  "instructions": [
+   "Heat 1 tbsp olive oil in a large skillet over medium-high heat.",
+   "Add 200g diced chicken and cook until golden brown, about 7 minutes.",
+   "Remove chicken and set aside; add remaining 1 tbsp olive oil to the skillet.",
+   "Add 1 chopped onion and 3 minced garlic cloves, saut\u00e9 until soft, about 3 minutes.",
+   "Add 2 beaten eggs and stir to scramble, about 2 minutes.",
+   "Add 300g cooked rice, stir-fried chicken, and 2 tbsp soy sauce, mixing well for 5 minutes."
+  ],
+  "steps": [
+   {
+    "number": 1,
+    "instruction": "Heat 1 tbsp olive oil in a large skillet over medium-high heat.",
+    "ingredients": [
+     "1 tbsp olive oil"
+    ],
+    "heat": "medium-high",
+    "temperature_c": null,
+    "duration_minutes": null,
+    "doneness_cue": ""
+   },
+   {
+    "number": 2,
+    "instruction": "Add 200g diced chicken and cook until golden brown, about 7 minutes.",
+    "ingredients": [
+     "200g chicken, diced"
+    ],
+    "heat": "medium-high",
+    "temperature_c": null,
+    "duration_minutes": 7,
+    "doneness_cue": "golden brown"
+   },
+   {
+    "number": 3,
+    "instruction": "Remove chicken and set aside; add remaining 1 tbsp olive oil to the skillet.",
+    "ingredients": [
+     "1 tbsp olive oil"
+    ],
+    "heat": "medium-high",
+    "temperature_c": null,
+    "duration_minutes": null,
+    "doneness_cue": ""
+   },
+   {
+    "number": 4,
+    "instruction": "Add 1 chopped onion and 3 minced garlic cloves, saut\u00e9 until soft, about 3 minutes.",
+    "ingredients": [
+     "1 medium onion, finely chopped",
+     "3 cloves garlic, minced"
+    ],
+    "heat": "medium-high",
+    "temperature_c": null,
+    "duration_minutes": 3,
+    "doneness_cue": "soft"
+   },
+   {
+    "number": 5,
+    "instruction": "Add 2 beaten eggs and stir to scramble, about 2 minutes.",
+    "ingredients": [
+     "2 eggs, beaten"
+    ],
+    "heat": "medium-high",
+    "temperature_c": null,
+    "duration_minutes": 2,
+    "doneness_cue": "cooked"
+   },
+   {
+    "number": 6,
+    "instruction": "Add 300g cooked rice, stir-fried chicken, and 2 tbsp soy sauce, mixing well for 5 minutes.",
+    "ingredients": [
+     "300g cooked rice",
+     "2 tbsp soy sauce",
+     "200g chicken, cooked"
+    ],
+    "heat": "medium-high",
+    "temperature_c": null,
+    "duration_minutes": 5,
+    "doneness_cue": "well combined"
+   }
+  ],
+  "nutrition": {
+   "calories": 600,
+   "protein_g": 35,
+   "fat_g": 22,
+   "carbs_g": 66
+  },
+  "servings": 2,
+  "yield_text": "Serves 2",
+  "image_query": "fried rice with chicken, vibrant, stir fried"
+ },
+ {
+  "id": "46d2d49d-6678-42c0-b788-8274ea53aac6",
+  "title": "Soy Glazed Chicken over Rice",
+  "emoji": "\ud83e\udd58",
+  "difficulty": "easy",
+  "time_minutes": 30,
+  "description": "Sticky soy-glazed chicken served over fluffy rice.",
+  "ingredients_used": [
+   "chicken",
+   "rice",
+   "garlic",
+   "soy sauce"
+  ],
+  "missing_ingredients": [
+   "honey"
+  ],
+  "ingredients_detailed": [
+   {
+    "name": "chicken",
+    "quantity": "400g"
+   },
+   {
+    "name": "rice",
+    "quantity": "200g"
+   },
+   {
+    "name": "garlic",
+    "quantity": "3 cloves, minced"
+   },
+   {
+    "name": "soy sauce",
+    "quantity": "3 tbsp"
+   },
+   {
+    "name": "honey",
+    "quantity": "1 tbsp"
+   },
+   {
+    "name": "olive oil",
+    "quantity": "2 tbsp"
+   }
+  ],
+  "instructions": [
+   "Cook 200g rice according to package instructions.",
+   "Heat 2 tbsp olive oil in a pan over medium-high heat.",
+   "Cook 400g chicken until cooked through and golden, about 8 minutes.",
+   "Add 3 minced garlic cloves, 3 tbsp soy sauce, and 1 tbsp honey, cooking until sticky, about 2 minutes.",
+   "Serve the chicken over the cooked rice."
+  ],
+  "steps": [
+   {
+    "number": 1,
+    "instruction": "Cook 200g rice according to package instructions.",
+    "ingredients": [
+     "200g rice"
+    ],
+    "heat": "",
+    "temperature_c": null,
+    "duration_minutes": 20,
+    "doneness_cue": "fluffy"
+   },
+   {
+    "number": 2,
+    "instruction": "Heat 2 tbsp olive oil in a pan over medium-high heat.",
+    "ingredients": [
+     "2 tbsp olive oil"
+    ],
+    "heat": "medium-high",
+    "temperature_c": null,
+    "duration_minutes": null,
+    "doneness_cue": ""
+   },
+   {
+    "number": 3,
+    "instruction": "Cook 400g chicken until cooked through and golden, about 8 minutes.",
+    "ingredients": [
+     "400g chicken"
+    ],
+    "heat": "medium-high",
+    "temperature_c": null,
+    "duration_minutes": 8,
+    "doneness_cue": "golden"
+   },
+   {
+    "number": 4,
+    "instruction": "Add 3 minced garlic cloves, 3 tbsp soy sauce, and 1 tbsp honey, cooking until sticky, about 2 minutes.",
+    "ingredients": [
+     "3 cloves garlic, minced",
+     "3 tbsp soy sauce",
+     "1 tbsp honey"
+    ],
+    "heat": "medium-high",
+    "temperature_c": null,
+    "duration_minutes": 2,
+    "doneness_cue": "sticky"
+   },
+   {
+    "number": 5,
+    "instruction": "Serve the chicken over the cooked rice.",
+    "ingredients": [
+     "400g chicken"
+    ],
+    "heat": "",
+    "temperature_c": null,
+    "duration_minutes": null,
+    "doneness_cue": ""
+   }
+  ],
+  "nutrition": {
+   "calories": 480,
+   "protein_g": 40,
+   "fat_g": 10,
+   "carbs_g": 55
+  },
+  "servings": 2,
+  "yield_text": "Serves 2",
+  "image_query": "sticky soy chicken, glazed"
+ }
+]

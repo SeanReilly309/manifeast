@@ -1,0 +1,579 @@
+[
+ {
+  "id": "74772a22-4373-4df3-b85e-7aab92bbb646",
+  "title": "Classic Chicken Stir Fry",
+  "emoji": "\ud83c\udf5c",
+  "difficulty": "easy",
+  "time_minutes": 30,
+  "description": "A quick and delicious classic chicken stir fry loaded with colorful vegetables and a savory sauce.",
+  "ingredients_used": [
+   "chicken breast",
+   "soy sauce",
+   "vegetable oil",
+   "bell pepper",
+   "broccoli",
+   "carrot",
+   "garlic",
+   "ginger",
+   "cornstarch",
+   "water",
+   "green onions",
+   "salt",
+   "pepper"
+  ],
+  "missing_ingredients": [],
+  "ingredients_detailed": [
+   {
+    "name": "chicken breast",
+    "quantity": "300g, sliced"
+   },
+   {
+    "name": "soy sauce",
+    "quantity": "3 tbsp"
+   },
+   {
+    "name": "vegetable oil",
+    "quantity": "2 tbsp"
+   },
+   {
+    "name": "bell pepper",
+    "quantity": "1, sliced"
+   },
+   {
+    "name": "broccoli",
+    "quantity": "200g, cut into florets"
+   },
+   {
+    "name": "carrot",
+    "quantity": "1, julienned"
+   },
+   {
+    "name": "garlic",
+    "quantity": "2 cloves, minced"
+   },
+   {
+    "name": "ginger",
+    "quantity": "1 tsp, minced"
+   },
+   {
+    "name": "cornstarch",
+    "quantity": "1 tbsp"
+   },
+   {
+    "name": "water",
+    "quantity": "1/4 cup (60ml)"
+   },
+   {
+    "name": "green onions",
+    "quantity": "2, chopped"
+   },
+   {
+    "name": "salt",
+    "quantity": "1/2 tsp"
+   },
+   {
+    "name": "pepper",
+    "quantity": "1/4 tsp"
+   }
+  ],
+  "instructions": [
+   "Slice 300g chicken breast into thin strips and season with 1/2 tsp salt and 1/4 tsp pepper.",
+   "Heat 2 tbsp vegetable oil in a large pan over medium-high heat.",
+   "Add the seasoned chicken strips and cook for 5-7 minutes, stirring frequently until golden and cooked through.",
+   "Stir in 2 cloves minced garlic and 1 tsp minced ginger, and cook for 1 minute until fragrant.",
+   "Add 1 sliced bell pepper, 200g broccoli florets, and 1 julienned carrot, and stir-fry for 5 minutes until vegetables are tender-crisp.",
+   "Mix together 3 tbsp soy sauce, 1 tbsp cornstarch, and 1/4 cup water in a bowl, then pour over the stir fry and cook for another 2-3 minutes to thicken.",
+   "Garnish with chopped green onions and serve hot over rice or noodles."
+  ],
+  "steps": [
+   {
+    "number": 1,
+    "instruction": "Slice 300g chicken breast into thin strips and season with 1/2 tsp salt and 1/4 tsp pepper.",
+    "ingredients": [
+     "300g chicken breast",
+     "1/2 tsp salt",
+     "1/4 tsp pepper"
+    ],
+    "heat": "",
+    "temperature_c": null,
+    "duration_minutes": null,
+    "doneness_cue": ""
+   },
+   {
+    "number": 2,
+    "instruction": "Heat 2 tbsp vegetable oil in a large pan over medium-high heat.",
+    "ingredients": [
+     "2 tbsp vegetable oil"
+    ],
+    "heat": "medium-high",
+    "temperature_c": null,
+    "duration_minutes": 2,
+    "doneness_cue": ""
+   },
+   {
+    "number": 3,
+    "instruction": "Add the seasoned chicken strips and cook for 5-7 minutes, stirring frequently until golden and cooked through.",
+    "ingredients": [
+     "300g chicken breast"
+    ],
+    "heat": "medium-high",
+    "temperature_c": null,
+    "duration_minutes": 7,
+    "doneness_cue": "golden and cooked through"
+   },
+   {
+    "number": 4,
+    "instruction": "Stir in 2 cloves minced garlic and 1 tsp minced ginger, and cook for 1 minute until fragrant.",
+    "ingredients": [
+     "2 cloves, minced garlic",
+     "1 tsp, minced ginger"
+    ],
+    "heat": "medium-high",
+    "temperature_c": null,
+    "duration_minutes": 1,
+    "doneness_cue": "fragrant"
+   },
+   {
+    "number": 5,
+    "instruction": "Add 1 sliced bell pepper, 200g broccoli florets, and 1 julienned carrot, and stir-fry for 5 minutes until vegetables are tender-crisp.",
+    "ingredients": [
+     "1, sliced bell pepper",
+     "200g, cut into florets broccoli",
+     "1, julienned carrot"
+    ],
+    "heat": "medium-high",
+    "temperature_c": null,
+    "duration_minutes": 5,
+    "doneness_cue": "tender-crisp"
+   },
+   {
+    "number": 6,
+    "instruction": "Mix together 3 tbsp soy sauce, 1 tbsp cornstarch, and 1/4 cup water in a bowl, then pour over the stir fry and cook for another 2-3 minutes to thicken.",
+    "ingredients": [
+     "3 tbsp soy sauce",
+     "1 tbsp cornstarch",
+     "1/4 cup (60ml) water"
+    ],
+    "heat": "medium-high",
+    "temperature_c": null,
+    "duration_minutes": 3,
+    "doneness_cue": "thickened"
+   },
+   {
+    "number": 7,
+    "instruction": "Garnish with chopped green onions and serve hot over rice or noodles.",
+    "ingredients": [
+     "2, chopped green onions"
+    ],
+    "heat": "",
+    "temperature_c": null,
+    "duration_minutes": null,
+    "doneness_cue": ""
+   }
+  ],
+  "nutrition": {
+   "calories": 400,
+   "protein_g": 30,
+   "fat_g": 15,
+   "carbs_g": 35
+  },
+  "servings": 2,
+  "yield_text": "Serves 2",
+  "image_query": "chicken stir fry, colorful vegetables, close up"
+ },
+ {
+  "id": "03427453-683f-459c-999b-41c0832130b7",
+  "title": "Spicy Mango Chicken Stir Fry",
+  "emoji": "\ud83e\udd6d",
+  "difficulty": "medium",
+  "time_minutes": 35,
+  "description": "A vibrant and spicy mango chicken stir fry that combines sweetness with heat for a delightful dinner.",
+  "ingredients_used": [
+   "chicken breast",
+   "mango",
+   "soy sauce",
+   "sriracha",
+   "vegetable oil",
+   "bell pepper",
+   "snap peas",
+   "onion",
+   "garlic",
+   "ginger",
+   "cornstarch",
+   "lime juice",
+   "salt",
+   "pepper",
+   "green onions"
+  ],
+  "missing_ingredients": [],
+  "ingredients_detailed": [
+   {
+    "name": "chicken breast",
+    "quantity": "300g, sliced"
+   },
+   {
+    "name": "mango",
+    "quantity": "1, diced"
+   },
+   {
+    "name": "soy sauce",
+    "quantity": "2 tbsp"
+   },
+   {
+    "name": "sriracha",
+    "quantity": "1 tbsp"
+   },
+   {
+    "name": "vegetable oil",
+    "quantity": "2 tbsp"
+   },
+   {
+    "name": "bell pepper",
+    "quantity": "1, sliced"
+   },
+   {
+    "name": "snap peas",
+    "quantity": "100g"
+   },
+   {
+    "name": "onion",
+    "quantity": "1, sliced"
+   },
+   {
+    "name": "garlic",
+    "quantity": "2 cloves, minced"
+   },
+   {
+    "name": "ginger",
+    "quantity": "1 tsp, minced"
+   },
+   {
+    "name": "cornstarch",
+    "quantity": "1 tbsp"
+   },
+   {
+    "name": "lime juice",
+    "quantity": "1 tbsp"
+   },
+   {
+    "name": "salt",
+    "quantity": "1/2 tsp"
+   },
+   {
+    "name": "pepper",
+    "quantity": "1/4 tsp"
+   },
+   {
+    "name": "green onions",
+    "quantity": "2, chopped"
+   }
+  ],
+  "instructions": [
+   "Slice 300g chicken breast into strips and season with 1/2 tsp salt and 1/4 tsp pepper.",
+   "Heat 2 tbsp vegetable oil in a wok over medium-high heat until shimmering.",
+   "Add the chicken and stir-fry for 5-7 minutes until nearly cooked through and starting to brown.",
+   "Stir in 2 minced garlic cloves and 1 tsp minced ginger, cooking for 1 minute until fragrant.",
+   "Add 1 sliced bell pepper, 100g snap peas, and 1 sliced onion, stir-frying for another 3-4 minutes until tender-crisp.",
+   "Mix together 2 tbsp soy sauce, 1 tbsp sriracha, 1 tbsp lime juice, and 1 tbsp cornstarch with 1/4 cup (60ml) water, then pour over the stir fry.",
+   "Add 1 diced mango to the stir fry, mixing well and cooking for another 2 minutes until heated through.",
+   "Garnish with chopped green onions and serve over jasmine rice or quinoa."
+  ],
+  "steps": [
+   {
+    "number": 1,
+    "instruction": "Slice 300g chicken breast into strips and season with 1/2 tsp salt and 1/4 tsp pepper.",
+    "ingredients": [
+     "300g chicken breast",
+     "1/2 tsp salt",
+     "1/4 tsp pepper"
+    ],
+    "heat": "",
+    "temperature_c": null,
+    "duration_minutes": null,
+    "doneness_cue": ""
+   },
+   {
+    "number": 2,
+    "instruction": "Heat 2 tbsp vegetable oil in a wok over medium-high heat until shimmering.",
+    "ingredients": [
+     "2 tbsp vegetable oil"
+    ],
+    "heat": "medium-high",
+    "temperature_c": null,
+    "duration_minutes": 2,
+    "doneness_cue": ""
+   },
+   {
+    "number": 3,
+    "instruction": "Add the chicken and stir-fry for 5-7 minutes until nearly cooked through and starting to brown.",
+    "ingredients": [
+     "300g chicken breast"
+    ],
+    "heat": "medium-high",
+    "temperature_c": null,
+    "duration_minutes": 7,
+    "doneness_cue": "browning"
+   },
+   {
+    "number": 4,
+    "instruction": "Stir in 2 minced garlic cloves and 1 tsp minced ginger, cooking for 1 minute until fragrant.",
+    "ingredients": [
+     "2 cloves, minced garlic",
+     "1 tsp, minced ginger"
+    ],
+    "heat": "medium-high",
+    "temperature_c": null,
+    "duration_minutes": 1,
+    "doneness_cue": "fragrant"
+   },
+   {
+    "number": 5,
+    "instruction": "Add 1 sliced bell pepper, 100g snap peas, and 1 sliced onion, stir-frying for another 3-4 minutes until tender-crisp.",
+    "ingredients": [
+     "1, sliced bell pepper",
+     "100g snap peas",
+     "1, sliced onion"
+    ],
+    "heat": "medium-high",
+    "temperature_c": null,
+    "duration_minutes": 4,
+    "doneness_cue": "tender-crisp"
+   },
+   {
+    "number": 6,
+    "instruction": "Mix together 2 tbsp soy sauce, 1 tbsp sriracha, 1 tbsp lime juice, and 1 tbsp cornstarch with 1/4 cup (60ml) water, then pour over the stir fry.",
+    "ingredients": [
+     "2 tbsp soy sauce",
+     "1 tbsp sriracha",
+     "1 tbsp lime juice",
+     "1 tbsp cornstarch",
+     "1/4 cup (60ml) water"
+    ],
+    "heat": "medium-high",
+    "temperature_c": null,
+    "duration_minutes": 3,
+    "doneness_cue": "thickened"
+   },
+   {
+    "number": 7,
+    "instruction": "Add 1 diced mango to the stir fry, mixing well and cooking for another 2 minutes until heated through.",
+    "ingredients": [
+     "1, diced mango"
+    ],
+    "heat": "medium-high",
+    "temperature_c": null,
+    "duration_minutes": 2,
+    "doneness_cue": "heated through"
+   },
+   {
+    "number": 8,
+    "instruction": "Garnish with chopped green onions and serve over jasmine rice or quinoa.",
+    "ingredients": [
+     "1, sliced onion",
+     "2, chopped green onions"
+    ],
+    "heat": "",
+    "temperature_c": null,
+    "duration_minutes": null,
+    "doneness_cue": ""
+   }
+  ],
+  "nutrition": {
+   "calories": 420,
+   "protein_g": 32,
+   "fat_g": 14,
+   "carbs_g": 45
+  },
+  "servings": 2,
+  "yield_text": "Serves 2",
+  "image_query": "spicy mango chicken stir fry, vibrant colors, close up"
+ },
+ {
+  "id": "d3b59b34-e853-465c-a977-cf22d11bf4c6",
+  "title": "Thai Basil Chicken Stir Fry",
+  "emoji": "\ud83c\uddf9\ud83c\udded",
+  "difficulty": "medium",
+  "time_minutes": 25,
+  "description": "A fragrant Thai basil chicken stir fry that brings aromatic flavors and a hint of spice to your meal.",
+  "ingredients_used": [
+   "chicken breast",
+   "thai basil",
+   "soy sauce",
+   "oyster sauce",
+   "vegetable oil",
+   "bell pepper",
+   "thai chili",
+   "garlic",
+   "onion",
+   "fish sauce",
+   "cornstarch",
+   "sugar",
+   "salt",
+   "pepper"
+  ],
+  "missing_ingredients": [],
+  "ingredients_detailed": [
+   {
+    "name": "chicken breast",
+    "quantity": "300g, sliced"
+   },
+   {
+    "name": "thai basil",
+    "quantity": "1 cup, loosely packed"
+   },
+   {
+    "name": "soy sauce",
+    "quantity": "2 tbsp"
+   },
+   {
+    "name": "oyster sauce",
+    "quantity": "1 tbsp"
+   },
+   {
+    "name": "vegetable oil",
+    "quantity": "2 tbsp"
+   },
+   {
+    "name": "bell pepper",
+    "quantity": "1, sliced"
+   },
+   {
+    "name": "thai chili",
+    "quantity": "2, chopped"
+   },
+   {
+    "name": "garlic",
+    "quantity": "2 cloves, minced"
+   },
+   {
+    "name": "onion",
+    "quantity": "1, sliced"
+   },
+   {
+    "name": "fish sauce",
+    "quantity": "1 tsp"
+   },
+   {
+    "name": "cornstarch",
+    "quantity": "1 tbsp"
+   },
+   {
+    "name": "sugar",
+    "quantity": "1 tsp"
+   },
+   {
+    "name": "salt",
+    "quantity": "1/2 tsp"
+   },
+   {
+    "name": "pepper",
+    "quantity": "1/4 tsp"
+   }
+  ],
+  "instructions": [
+   "Slice 300g chicken breast into thin strips and season with 1/2 tsp salt and 1/4 tsp pepper.",
+   "Heat 2 tbsp vegetable oil in a skillet over medium-high heat until hot.",
+   "Add the sliced chicken and stir-fry for 5 minutes until browned and cooked through, stirring occasionally.",
+   "Add 2 minced garlic cloves, 2 chopped thai chilies, and 1 sliced onion, stir-frying for 2-3 minutes until fragrant.",
+   "Stir in 1 sliced bell pepper, 2 tbsp soy sauce, 1 tbsp oyster sauce, 1 tsp fish sauce, and 1 tsp sugar, cooking for 2 minutes.",
+   "Add 1 cup loosely packed thai basil to the stir fry, mixing well until the basil has wilted.",
+   "Serve hot with rice or noodles and garnish with extra thai basil if desired."
+  ],
+  "steps": [
+   {
+    "number": 1,
+    "instruction": "Slice 300g chicken breast into thin strips and season with 1/2 tsp salt and 1/4 tsp pepper.",
+    "ingredients": [
+     "300g chicken breast",
+     "1/2 tsp salt",
+     "1/4 tsp pepper"
+    ],
+    "heat": "",
+    "temperature_c": null,
+    "duration_minutes": null,
+    "doneness_cue": ""
+   },
+   {
+    "number": 2,
+    "instruction": "Heat 2 tbsp vegetable oil in a skillet over medium-high heat until hot.",
+    "ingredients": [
+     "2 tbsp vegetable oil"
+    ],
+    "heat": "medium-high",
+    "temperature_c": null,
+    "duration_minutes": 2,
+    "doneness_cue": ""
+   },
+   {
+    "number": 3,
+    "instruction": "Add the sliced chicken and stir-fry for 5 minutes until browned and cooked through, stirring occasionally.",
+    "ingredients": [
+     "300g chicken breast"
+    ],
+    "heat": "medium-high",
+    "temperature_c": null,
+    "duration_minutes": 5,
+    "doneness_cue": "browned and cooked through"
+   },
+   {
+    "number": 4,
+    "instruction": "Add 2 minced garlic cloves, 2 chopped thai chilies, and 1 sliced onion, stir-frying for 2-3 minutes until fragrant.",
+    "ingredients": [
+     "2 cloves, minced garlic",
+     "2, chopped thai chili",
+     "1, sliced onion"
+    ],
+    "heat": "medium-high",
+    "temperature_c": null,
+    "duration_minutes": 3,
+    "doneness_cue": "fragrant"
+   },
+   {
+    "number": 5,
+    "instruction": "Stir in 1 sliced bell pepper, 2 tbsp soy sauce, 1 tbsp oyster sauce, 1 tsp fish sauce, and 1 tsp sugar, cooking for 2 minutes.",
+    "ingredients": [
+     "1, sliced bell pepper",
+     "2 tbsp soy sauce",
+     "1 tbsp oyster sauce",
+     "1 tsp fish sauce",
+     "1 tsp sugar"
+    ],
+    "heat": "medium-high",
+    "temperature_c": null,
+    "duration_minutes": 2,
+    "doneness_cue": ""
+   },
+   {
+    "number": 6,
+    "instruction": "Add 1 cup loosely packed thai basil to the stir fry, mixing well until the basil has wilted.",
+    "ingredients": [
+     "1 cup, loosely packed thai basil"
+    ],
+    "heat": "medium-high",
+    "temperature_c": null,
+    "duration_minutes": 1,
+    "doneness_cue": "wilted"
+   },
+   {
+    "number": 7,
+    "instruction": "Serve hot with rice or noodles and garnish with extra thai basil if desired.",
+    "ingredients": [
+     "1 cup, loosely packed thai basil"
+    ],
+    "heat": "",
+    "temperature_c": null,
+    "duration_minutes": null,
+    "doneness_cue": ""
+   }
+  ],
+  "nutrition": {
+   "calories": 360,
+   "protein_g": 28,
+   "fat_g": 12,
+   "carbs_g": 30
+  },
+  "servings": 2,
+  "yield_text": "Serves 2",
+  "image_query": "thai basil chicken stir fry, aromatic, close up"
+ }
+]

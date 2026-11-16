@@ -7,6 +7,7 @@ import re
 import json
 import logging
 import uuid
+import asyncio
 from pathlib import Path
 from datetime import datetime, timezone
 from typing import List, Optional
@@ -425,12 +426,27 @@ DIRECT_INSTRUCTIONS_RULE = (
 
 
 _VALID_HEATS = {"low", "medium-low", "medium", "medium-high", "high"}
+_HEAT_ALIASES = {
+    "med": "medium",
+    "med-low": "medium-low",
+    "med-high": "medium-high",
+    "medlow": "medium-low",
+    "medhigh": "medium-high",
+    "lo": "low",
+    "hi": "high",
+}
 
 
 def _normalise_heat(raw) -> str:
     if not isinstance(raw, str):
         return ""
-    v = raw.strip().lower().replace(" ", "-")
+    v = raw.strip().lower()
+    # Strip trailing "heat"/"flame" so "medium heat" / "high flame" work too.
+    for suffix in (" heat", " flame", " fire"):
+        if v.endswith(suffix):
+            v = v[: -len(suffix)].rstrip()
+    v = v.replace(" ", "-")
+    v = _HEAT_ALIASES.get(v, v)
     return v if v in _VALID_HEATS else ""
 
 
@@ -791,42 +807,80 @@ async def inspire_meals(request: Request, req: InspireRequest):
             except Exception:
                 logging.exception("inspire cache read failed — refetching")
 
-    # ---- Cache miss: call the fast model ----
-    system = (
-        f"You are a creative recipe curator. Suggest {n} DIFFERENT and varied "
-        f"{category} ideas someone could cook at home. Mix cuisines, flavor profiles, "
-        "and difficulty. Avoid near-duplicates. Keep descriptions SHORT (max ~15 words). "
-        "For each recipe return this JSON schema: "
-        "title, emoji, difficulty ('easy'|'medium'|'hard'), time_minutes (int), "
-        "description (one short appetizing sentence), "
-        "ingredients_used (the full ingredient list, lowercase names only), "
-        "missing_ingredients (empty array), "
-        "ingredients_detailed (REQUIRED — array of objects like "
-        '{"name": "rolled oats", "quantity": "1/2 cup (50g)"} covering every ingredient '
-        "with realistic measured amounts), "
-        + DIRECT_INSTRUCTIONS_RULE +
-        "servings (int, default 2), "
-        'yield_text (REQUIRED short human-readable output like "Serves 2", '
-        '"Makes 12 pancakes", "1 bowl"), '
-        "nutrition object (calories, protein_g, fat_g, carbs_g per serving as integers, realistic), and "
-        "image_query (2-4 lowercase comma-separated keywords for a food photo). "
-        'Return ONLY JSON: {"recipes": [ {...}, {...} ]}'
-    )
+    # ---- Cache miss: call the fast model in PARALLEL batches ----
+    # Rationale: asking gpt-4o-mini for 12 structured step objects takes
+    # >60s, which the K8s ingress kills. 3 parallel calls of ~4 recipes
+    # each come back in 10-18s and give us better variety too.
+    BATCH_SIZE = 4
+    num_batches = max(1, (n + BATCH_SIZE - 1) // BATCH_SIZE)
+    batch_sizes = [BATCH_SIZE] * num_batches
+    # Trim the last batch so total == n exactly.
+    batch_sizes[-1] = n - BATCH_SIZE * (num_batches - 1)
 
-    user_msg = UserMessage(
-        text=f"Give me {n} varied {category} ideas I could make today."
-    )
+    # Slight per-batch "angle" hint keeps the three calls from converging on
+    # the same recipes.
+    BATCH_ANGLES = [
+        "classic home-cooked comfort food",
+        "healthy, lighter, veggie-forward",
+        "global / international flavours",
+    ]
+
+    def _build_system(batch_n: int, angle: str) -> str:
+        return (
+            f"You are a creative recipe curator. Suggest {batch_n} DIFFERENT and varied "
+            f"{category} ideas, leaning towards {angle}. Mix cuisines, flavor profiles, "
+            "and difficulty. Avoid near-duplicates. Keep descriptions SHORT (max ~15 words). "
+            "For each recipe return this JSON schema: "
+            "title, emoji, difficulty ('easy'|'medium'|'hard'), time_minutes (int), "
+            "description (one short appetizing sentence), "
+            "ingredients_used (the full ingredient list, lowercase names only), "
+            "missing_ingredients (empty array), "
+            "ingredients_detailed (REQUIRED — array of objects like "
+            '{"name": "rolled oats", "quantity": "1/2 cup (50g)"} covering every ingredient '
+            "with realistic measured amounts), "
+            + DIRECT_INSTRUCTIONS_RULE +
+            "servings (int, default 2), "
+            'yield_text (REQUIRED short human-readable output like "Serves 2", '
+            '"Makes 12 pancakes", "1 bowl"), '
+            "nutrition object (calories, protein_g, fat_g, carbs_g per serving as integers, realistic), and "
+            "image_query (2-4 lowercase comma-separated keywords for a food photo). "
+            'Return ONLY JSON: {"recipes": [ {...}, {...} ]}'
+        )
+
+    async def _fetch_batch(batch_n: int, angle: str) -> List[Recipe]:
+        built_recipes: List[Recipe] = []
+        try:
+            system = _build_system(batch_n, angle)
+            user_msg = UserMessage(
+                text=f"Give me {batch_n} varied {category} ideas I could make today."
+            )
+            raw = await _run_chat(system, user_msg, model=LLM_MODEL_FAST, json_mode=True)
+            data = _extract_json(raw)
+            raw_recipes = data.get("recipes", []) if isinstance(data, dict) else []
+            for r in raw_recipes:
+                built = _build_recipe(r)
+                if _is_cookable(built):
+                    built_recipes.append(built)
+        except Exception:
+            # One batch failing shouldn't take down the whole category — the
+            # others will still populate. Log and move on.
+            logging.exception("inspire batch failed (category=%s, batch_n=%s)", category, batch_n)
+        return built_recipes
 
     async def _fetch_once() -> List[Recipe]:
-        built_recipes: List[Recipe] = []
-        raw = await _run_chat(system, user_msg, model=LLM_MODEL_FAST, json_mode=True)
-        data = _extract_json(raw)
-        raw_recipes = data.get("recipes", []) if isinstance(data, dict) else []
-        for r in raw_recipes:
-            built = _build_recipe(r)
-            if _is_cookable(built):
-                built_recipes.append(built)
-        return built_recipes
+        results = await asyncio.gather(*[
+            _fetch_batch(sz, BATCH_ANGLES[i % len(BATCH_ANGLES)])
+            for i, sz in enumerate(batch_sizes)
+        ])
+        merged: List[Recipe] = []
+        seen_titles = set()
+        for batch in results:
+            for r in batch:
+                key = (r.title or "").strip().lower()
+                if key and key not in seen_titles:
+                    seen_titles.add(key)
+                    merged.append(r)
+        return merged
 
     recipes: List[Recipe] = []
     try:

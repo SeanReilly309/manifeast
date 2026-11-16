@@ -473,7 +473,7 @@ export default function CookMode() {
                         data-testid={`cook-step-ingredient-${i}`}
                         className="flex items-baseline justify-between gap-3 text-sm"
                       >
-                        <span className="text-brand-text capitalize">{name}</span>
+                        <span className="text-brand-text first-letter:uppercase">{name}</span>
                         {qty && <span className="text-brand-text-soft font-mono text-xs">{qty}</span>}
                       </li>
                     );
