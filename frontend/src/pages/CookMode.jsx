@@ -16,7 +16,7 @@ import {
 import { Button } from "../components/ui/button";
 import { useApp } from "../context/AppContext";
 import { findRecipeById } from "../lib/findRecipe";
-import { recipeImage } from "../lib/recipeImage";
+import { recipeImage, fallbackFoodImage } from "../lib/recipeImage";
 import {
   extractDuration,
   formatTimerClock,
@@ -239,6 +239,7 @@ export default function CookMode() {
               alt={recipe.title}
               className="w-full h-40 md:h-56 object-cover"
               loading="eager"
+              onError={(e) => { if (!e.currentTarget.dataset.fb) { e.currentTarget.dataset.fb = "1"; e.currentTarget.src = fallbackFoodImage(0); } }}
               data-testid="cook-header-image"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />

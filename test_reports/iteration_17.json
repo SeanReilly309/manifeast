@@ -1,0 +1,38 @@
+{
+  "summary": "Frontend E2E testing of the 'No recipe to cook' fix and the upgraded Cook Mode on the preview URL (desktop 1920x1080 + mobile 390x844). The happy path works for all 5 Inspire categories (Breakfast, Lunch, Dinner, Snack, Dessert): card -> RecipeDetail -> Start cooking -> Cook Mode, with real numbered steps and no 'No recipe to cook' text. Step counter, progress bar, Prev/Next/Finish, keyboard (Right/Left/Space/Esc), timer detection with play/pause/reset, per-step ingredients, the error state, the fallback state (including Retry/askRecipes refetch), and lookup from each cache alone (Inspire cache, favorites, wcie_recipes) all pass. Found and fixed 2 frontend bugs: (1) Cook Mode CRASHED to a white screen when an ingredient name contained regex characters such as 'salt (to taste)', because cookStep.ingredientsForStep built a RegExp from the raw text; (2) the Cook Mode header image had no onError fallback, and loremflickr currently returns HTTP 500, so the alt text showed as a broken image. Also found a backend data bug: ingredients_used comes through as single characters.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api inspire/recipe generation (server.py _str_list, line ~319)", "issue": "When the LLM returns ingredients_used as one comma-separated string, _str_list(values) loops over it character by character. Confirmed in the Inspire cache: breakfast/lunch/dessert recipes have ingredients_used = ['r','o','l','l','e','d',' ',...]. The RecipeCard chips show 'r o l l +64 more'. Fix: if isinstance(values, str), split on commas/newlines before normalising."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "CookMode / lib/cookStep.js ingredientsForStep", "issue": "FIXED by testing agent: new RegExp built from unescaped ingredient names threw 'Invalid regular expression: Unmatched )' for names like 'salt (to taste)', so the whole Cook Mode white-screened. The fix escapes the regex and strips punctuation from the tokens.", "selector": "[data-testid=cook-mode]", "priority": "HIGH"},
+      {"component": "CookMode header image", "issue": "FIXED by testing agent: there was no onError handler, and loremflickr currently returns 500, so a broken image with alt text appeared. Added a fallbackFoodImage(0) onError handler, matching RecipeDetail/RecipeCard.", "selector": "[data-testid=cook-header-image]", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Cook Mode / Inspire cards", "issues": ["The fallback stock photo is generic and unrelated (e.g. sliced chicken shown for 'Savory Oatmeal Bowl'; a kitchen interior for 'Banana Pancakes'). Consider a neutral food/gradient placeholder.", "Inspire card ingredient chips show single letters because of the backend _str_list bug."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Fix backend _str_list to handle comma-separated string input (ingredients_used shows single-character chips)",
+    "Optional: extractDuration picks the lower bound of a range ('3-4 minutes' -> 3:00); consider using the upper bound. '1 hour 30 minutes' picks 1h rather than 1h30 (the parts aren't summed).",
+    "Optional: ingredientsForStep keys on the LAST token of the name, so 'salt (to taste)' matches on 'taste'. Consider stripping parenthetical text before tokenising. singularise('olives') -> 'oliv', which won't match 'olive'.",
+    "Optional: the cook-error page has no app header/nav (the route sits outside AppShell); acceptable, but the user can only leave via the buttons."
+  ],
+  "critical_code_review_comments": [
+    "cookStep.ingredientsForStep: unescaped user/LLM text was used in RegExp (fixed).",
+    "CookMode.refetchRecipe replaces the recipe in context, but if it came only from the Inspire cache/favorites, those caches keep the stale 0-instruction copy (context takes priority, so the UI is fine).",
+    "findRecipeById parses localStorage JSON on every memo recompute; this is fine at the current scale."
+  ],
+  "updated_files": ["/app/frontend/src/lib/cookStep.js", "/app/frontend/src/pages/CookMode.jsx"],
+  "success_rate": {"backend": "N/A (no backend changes; regression not re-run)", "frontend": "100% of requested flows after 2 fixes (crash bug found pre-fix)"},
+  "seed_data_creation": "No DB data. Temporary localStorage-only recipes TEST_fallback_1 and TEST_fav_only_1 were injected in the test browser context only.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Inspire tab testids are inspire-tab-breakfast/lunch/dinner/snack/dessert (singular). The Inspire cache shape is {category: [recipes]}. A fresh browser context has empty localStorage, so load /inspire before direct /recipe/<id>/cook URLs. loremflickr was returning 500 during testing.",
+  "rca of the issue": "Original bug: CookMode/RecipeDetail only read AppContext state. Verified fixed: direct URLs resolve from the wcie_recipes, manifeast_favorites and manifeast_inspire_cache caches, each tested alone. A new regression introduced by this iteration (regex crash on special chars in ingredient names) was reproduced with 'salt (to taste)' and fixed in cookStep.js."
+}

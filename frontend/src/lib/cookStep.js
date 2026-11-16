@@ -84,10 +84,11 @@ export function ingredientsForStep(stepText, ingredientsDetailed) {
     const name = nameOf(ing);
     if (!name) continue;
     // Match multi-word ingredients as a substring, single words as whole-ish.
-    const tokens = name.split(/\s+/).filter((t) => t.length > 2);
+    const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const tokens = name.replace(/[^\p{L}\p{N}\s'-]/gu, " ").split(/\s+/).filter((t) => t.length > 2);
     const key = tokens[tokens.length - 1] || name;
     const singular = singularise(key);
-    const re = new RegExp(`\\b(${key}|${singular})s?\\b`, "i");
+    const re = new RegExp(`\\b(${esc(key)}|${esc(singular)})s?\\b`, "i");
     if (re.test(hay)) out.push(ing);
   }
   return out;

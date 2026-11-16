@@ -317,7 +317,29 @@ async def scan_fridge(request: Request, req: ScanRequest):
 
 
 def _str_list(values) -> List[str]:
-    return [str(x).lower() for x in values or [] if isinstance(x, str)]
+    """Normalise a list-ish value into a clean list of lowercase strings.
+
+    The LLM sometimes returns `ingredients_used` or `missing_ingredients` as
+    a single comma/newline-separated string instead of an array. If we just
+    iterate that string we would loop character by character and render
+    chips like 'r o l l'. Split it first.
+    """
+    if values is None:
+        return []
+    if isinstance(values, str):
+        parts = re.split(r"[,\n;]+", values)
+        return [p.strip().lower() for p in parts if p and p.strip()]
+    if not isinstance(values, (list, tuple, set)):
+        return []
+    out: List[str] = []
+    for x in values:
+        if isinstance(x, str):
+            out.append(x.strip().lower())
+        elif isinstance(x, dict):
+            name = x.get("name") or x.get("ingredient") or ""
+            if isinstance(name, str) and name.strip():
+                out.append(name.strip().lower())
+    return [s for s in out if s]
 
 
 _INT_RE = re.compile(r"-?\d+")
