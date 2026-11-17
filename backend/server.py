@@ -586,15 +586,70 @@ def _build_steps(raw_steps, fallback_instructions, ingredients_detailed) -> List
 
 
 def _is_cookable(recipe: "Recipe") -> bool:
-    """A recipe is only surfaced to users if it has real cooking data — at
-    least 2 steps AND at least 2 measured ingredients. This stops
-    half-formed LLM outputs from reaching the UI where Cook Mode /
-    Recipe Detail would render blank."""
-    return (
-        recipe is not None
-        and (len(recipe.steps) >= 2 or len(recipe.instructions) >= 2)
-        and len(recipe.ingredients_detailed) >= 2
-    )
+    """Strict completeness guard — Inspire (and other recipe endpoints) only
+    surface recipes that a user can open and cook from start to finish with
+    zero guessing. A recipe is rejected if any of these are missing:
+
+    * title
+    * time_minutes > 0  (total cook time)
+    * servings > 0
+    * at least 3 ingredients in ``ingredients_detailed`` AND every one of
+      them carries a non-empty ``quantity`` (so "chicken" alone is out —
+      "300g chicken breast" is in)
+    * at least 3 cooking steps (either structured ``steps`` or legacy
+      ``instructions`` strings) with non-empty text
+    * at least one step with concrete cooking metadata — a heat level,
+      a temperature, or a duration — otherwise the recipe is probably
+      a one-liner summary, not real cooking directions.
+
+    Cold / no-cook recipes still pass as long as they have proper step
+    text (they'll just not need heat/temp — we accept ``duration_minutes``
+    as the concrete metadata for things like "chill for 30 min").
+    """
+    if recipe is None:
+        return False
+    if not recipe.title or not recipe.title.strip():
+        return False
+    if not isinstance(recipe.time_minutes, int) or recipe.time_minutes <= 0:
+        return False
+    if not isinstance(recipe.servings, int) or recipe.servings <= 0:
+        return False
+
+    # Ingredients must be fully measured.
+    ings = recipe.ingredients_detailed or []
+    if len(ings) < 3:
+        return False
+    for ing in ings:
+        name = (ing.name or "").strip()
+        qty = (ing.quantity or "").strip()
+        if not name or not qty:
+            return False
+
+    # Steps must exist and be non-trivial.
+    steps = recipe.steps or []
+    instructions = recipe.instructions or []
+    step_count = max(len(steps), len(instructions))
+    if step_count < 3:
+        return False
+    if steps:
+        if sum(1 for s in steps if (s.instruction or "").strip()) < 3:
+            return False
+        # Require at least one step carries real cooking metadata so we
+        # aren't shipping vague "cook until done" one-liners.
+        if not any(
+            (s.heat or "") or (s.temperature_c and s.temperature_c > 0) or (s.duration_minutes and s.duration_minutes > 0)
+            for s in steps
+        ):
+            return False
+    elif instructions:
+        if sum(1 for t in instructions if isinstance(t, str) and t.strip()) < 3:
+            return False
+        # Legacy strings — require at least one to mention a concrete time
+        # or temperature (e.g. "20 minutes", "180°C").
+        meta_re = re.compile(r"(\d+\s*(?:°\s*c|degrees|min|minute|hour|hr|sec))", re.IGNORECASE)
+        if not any(meta_re.search(t) for t in instructions if isinstance(t, str)):
+            return False
+    return True
 
 
 def _build_instructions(raw) -> List[str]:
@@ -854,14 +909,18 @@ async def inspire_meals(request: Request, req: InspireRequest):
                 logging.exception("inspire cache read failed — refetching")
 
     # ---- Cache miss: call the fast model in PARALLEL batches ----
-    # Rationale: asking gpt-4o-mini for 12 structured step objects takes
-    # >60s, which the K8s ingress kills. 3 parallel calls of ~4 recipes
-    # each come back in 10-18s and give us better variety too.
+    # Rationale: asking gpt-4o-mini for 12 structured step objects in a single
+    # call takes >60s and the K8s ingress kills it. 4 parallel calls of 4
+    # recipes each come back in ~15-20s AND let us OVER-FETCH so the strict
+    # cookability filter (ingredients must all have quantities, >=3 steps
+    # with real cooking metadata, etc.) can discard mediocre recipes and
+    # still leave us with >= n keepers.
     BATCH_SIZE = 4
-    num_batches = max(1, (n + BATCH_SIZE - 1) // BATCH_SIZE)
+    # Over-fetch by ~60% so we have headroom after the strict filter rejects
+    # under-specified recipes.
+    target_fetch = max(n + 4, int(n * 1.6))
+    num_batches = max(1, (target_fetch + BATCH_SIZE - 1) // BATCH_SIZE)
     batch_sizes = [BATCH_SIZE] * num_batches
-    # Trim the last batch so total == n exactly.
-    batch_sizes[-1] = n - BATCH_SIZE * (num_batches - 1)
 
     # Slight per-batch "angle" hint keeps the three calls from converging on
     # the same recipes.
@@ -929,18 +988,34 @@ async def inspire_meals(request: Request, req: InspireRequest):
         return merged
 
     recipes: List[Recipe] = []
+    seen_titles: set[str] = set()
+
+    # Single over-fetched sweep — the +60% headroom means we almost always
+    # pass the strict completeness filter on the first attempt. One retry
+    # only if we end up with literally zero recipes.
     try:
-        recipes = await _fetch_once()
+        fresh = await _fetch_once()
+        for r in fresh:
+            key = (r.title or "").strip().lower()
+            if key and key not in seen_titles:
+                seen_titles.add(key)
+                recipes.append(r)
         if not recipes:
-            # LLM sometimes emits malformed instructions for a whole batch —
-            # retry once before giving up on the category.
-            logging.warning("inspire %s: empty after parse, retrying once", category)
-            recipes = await _fetch_once()
+            logging.warning("inspire %s: zero cookable recipes, one retry", category)
+            fresh = await _fetch_once()
+            for r in fresh:
+                key = (r.title or "").strip().lower()
+                if key and key not in seen_titles:
+                    seen_titles.add(key)
+                    recipes.append(r)
     except HTTPException:
         raise
     except Exception:
         logging.exception("inspire failed")
         raise HTTPException(status_code=500, detail="Inspiration failed")
+
+    # Trim to the requested count — we never over-return.
+    recipes = recipes[:n]
 
     if not recipes:
         raise HTTPException(status_code=500, detail="No recipes returned")

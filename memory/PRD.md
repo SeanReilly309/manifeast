@@ -56,6 +56,19 @@ Take a photo of fridge/cupboard → app tells you 3–5 meal ideas, difficulty, 
 - **Instant Inspire Shuffle (iteration_16)**: `/api/inspire` serves up to 12 recipes per pool; `InspireMe.jsx` fetches a pool of 12 once, displays a window of 3, Shuffle rotates the cursor by 3 (0ms, no server call). Full cycle silently refills the pool. `Load more` button removed.
 - **Shopping list sharing (iteration_16)**: `lib/shareShop.js` encodes items into a base64url URL hash; new `/shop/import` page decodes and merges with silent-dedup. Top-level `[data-testid=share-list-btn]` + per-row `[data-testid=share-<name>]`. Single-item share auto-adds on open.
 
+### Mar 1, 2026 — Strict Inspire completeness guard
+- **`_is_cookable()` rewritten as a full completeness check**: a recipe only reaches Inspire (or Scan/Ask) if ALL of the following are true:
+  - non-empty title
+  - `time_minutes` > 0
+  - `servings` > 0
+  - ≥ 3 ingredients AND every ingredient has BOTH a `name` and a `quantity`
+  - ≥ 3 structured steps with non-empty instruction text
+  - at least one step carries real cooking metadata (heat / temperature_c / duration_minutes) — otherwise it's a vague one-liner, not a real recipe
+  - (legacy fallback: if only `instructions` strings are present, at least one must mention a concrete time or temperature)
+- **Inspire over-fetches**: `/api/inspire` now requests ~60% more recipes than the user asked for (e.g. 20 for a count=12 call), so the strict filter can discard mediocre LLM outputs and still return the full `n`. Trimmed to exactly `n` before response.
+- **Timing**: single parallel sweep (~45s for count=12, under the 60s ingress limit), one-shot retry only if we ended up with literally zero. Cached hit is still sub-second.
+- **Result**: Inspire never shows a recipe the user can't open and cook end-to-end — no half-measured ingredients, no three-line-summary steps, no "cook until done" vagueness.
+
 ### Mar 1, 2026 — Persistent "recently viewed" recipe cache
 - **Root cause of "Couldn't load this recipe"**: InspireMe's `setRecipes(results)` only persists the 3 currently-visible cards; when the pool refills in the background (shuffle wrap-around) OR another page like Scan/Ask/Favorites overwrites `recipes` state, the specific recipe the user opened disappears from every cache and Cook Mode's URL `/recipe/<id>/cook` can no longer resolve.
 - **Fix**: New `rememberRecipe()` in AppContext persists every opened recipe to a sliding-cap (60) `manifeast_recent_recipes` localStorage list. Wired into `InspireMe.handleOpen`, `Ask.handleOpen`, `Results.handleOpen`, `Favorites.handleOpen`, plus a safety-net `useEffect` in `RecipeDetail` that remembers whichever recipe was successfully resolved. `findRecipeById` now also searches `LS_RECENT` as its 3rd lookup. Cook Mode now always finds any recipe the user has seen before, even weeks later.
