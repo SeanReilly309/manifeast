@@ -304,8 +304,9 @@ async def _ensure_recipe_store_index() -> None:
 async def _persist_recipes(items: List["Recipe"]) -> None:
     """Bulk upsert the given recipes into the durable `recipes_store`
     collection. Called by every endpoint that returns recipes so a later
-    GET /api/recipe/{id} always finds them. Silent on error — the recipe
-    is still returned in the response, so this is best-effort."""
+    GET /api/recipe/{id} always finds them. Every recipe is re-checked
+    against the completeness filter so partial LLM outputs never leak into
+    the durable store even if callers forget to filter upfront."""
     if not items:
         return
     now_iso = datetime.now(timezone.utc).isoformat()
@@ -314,6 +315,8 @@ async def _persist_recipes(items: List["Recipe"]) -> None:
         for r in items:
             if not getattr(r, "id", None):
                 continue
+            if not _is_cookable(r):
+                continue  # strict completeness is enforced here too
             doc = r.model_dump()
             doc["last_accessed"] = datetime.now(timezone.utc)
             doc["cached_at"] = now_iso
@@ -355,7 +358,14 @@ async def get_recipe(request: Request, recipe_id: str):
     doc.pop("_id", None)
     doc.pop("cached_at", None)
     doc.pop("last_accessed", None)
-    return Recipe(**doc)
+    recipe = Recipe(**doc)
+    # Belt-and-braces: if a stored recipe no longer passes our completeness
+    # filter (e.g. it was persisted before the filter was tightened), treat
+    # it as missing so the UI shows the proper error instead of a half-recipe.
+    if not _is_cookable(recipe):
+        logging.info("recipe %s failed cookability on read — treating as 404", recipe_id)
+        raise HTTPException(status_code=404, detail="Recipe not found")
+    return recipe
 
 
 @api_router.post("/scan", response_model=ScanResponse)
