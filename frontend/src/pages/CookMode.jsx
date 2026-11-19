@@ -12,18 +12,18 @@ import {
   Play,
   Pause,
   RotateCcw,
+  Loader2,
   ListOrdered,
   AlertTriangle,
 } from "lucide-react";
 import { Button } from "../components/ui/button";
-import { useApp } from "../context/AppContext";
-import { findRecipeById } from "../lib/findRecipe";
 import { recipeImage, fallbackFoodImage } from "../lib/recipeImage";
 import {
   extractDuration,
   formatTimerClock,
   ingredientsForStep,
 } from "../lib/cookStep";
+import { useRecipe } from "../lib/useRecipe";
 import { toast } from "sonner";
 
 // Normalise whatever `recipe.steps` / `recipe.instructions` the backend gave
@@ -75,14 +75,7 @@ function heatLabel(heat) {
 export default function CookMode() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { recipes, favorites } = useApp();
-
-  // Search every cache in the app for the recipe. This fixes the old
-  // "No recipe to cook" bug where CookMode could only see AppContext state.
-  const recipe = useMemo(
-    () => findRecipeById(id, { contextRecipes: recipes, contextFavorites: favorites }),
-    [id, recipes, favorites],
-  );
+  const { recipe, loading, error, retry } = useRecipe(id);
 
   const steps = useMemo(() => buildStructuredSteps(recipe), [recipe]);
 
@@ -174,6 +167,21 @@ export default function CookMode() {
     return ingredientsForStep(currentText, ings);
   }, [currentStep, currentText, recipe]);
 
+  // --- Loading state (recipe is being fetched from the backend) ---------
+  if (loading && !recipe) {
+    return (
+      <div
+        className="min-h-[60vh] grid place-items-center px-6"
+        data-testid="cook-loading"
+      >
+        <div className="flex items-center gap-3 text-brand-text-soft">
+          <Loader2 className="w-5 h-5 animate-spin text-brand-primary" strokeWidth={1.8} />
+          <span className="text-sm font-medium">Loading recipe…</span>
+        </div>
+      </div>
+    );
+  }
+
   // --- Error state -------------------------------------------------------
   // Treat "no recipe found" AND "recipe found but has zero cookable steps"
   // the same way — show the proper error card instead of a generic guide.
@@ -189,15 +197,21 @@ export default function CookMode() {
             Couldn&rsquo;t load this recipe.
           </h1>
           <p className="text-sm text-brand-text-soft">
-            It may have been cleared from your device or the link is stale.
+            {error || "The recipe data isn't available right now."}
           </p>
           <div className="flex items-center justify-center gap-3">
             <Button
               data-testid="cook-retry-btn"
-              onClick={() => window.location.reload()}
-              className="rounded-full bg-brand-primary hover:bg-brand-primary-dark text-white px-6"
+              onClick={retry}
+              disabled={loading}
+              className="rounded-full bg-brand-primary hover:bg-brand-primary-dark text-white px-6 disabled:opacity-60"
             >
-              <RotateCcw className="w-4 h-4 mr-2" strokeWidth={1.9} /> Try again
+              {loading ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" strokeWidth={1.9} />
+              ) : (
+                <RotateCcw className="w-4 h-4 mr-2" strokeWidth={1.9} />
+              )}
+              Try again
             </Button>
             <Button
               data-testid="cook-back-btn"

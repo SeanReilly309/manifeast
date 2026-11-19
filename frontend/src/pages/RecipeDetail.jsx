@@ -1,12 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
-import { ArrowLeft, Clock, ChefHat, ShoppingBasket, Check, Heart, Share2, Play } from "lucide-react";
+import { ArrowLeft, Clock, ChefHat, ShoppingBasket, Check, Heart, Share2, Play, Loader2, RotateCcw } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { toast } from "sonner";
 import { useApp } from "../context/AppContext";
 import { recipeImage, fallbackFoodImage } from "../lib/recipeImage";
 import { scaleQuantity, scaleServings } from "../lib/scale";
-import { findRecipeById } from "../lib/findRecipe";
+import { useRecipe } from "../lib/useRecipe";
 
 const SCALES = [
   { value: 0.5, label: "½×" },
@@ -36,29 +36,50 @@ function buildShareText(recipe) {
 export default function RecipeDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { recipes, favorites, addShoppingItems, isFavorite, toggleFavorite, rememberRecipe } = useApp();
+  const { addShoppingItems, isFavorite, toggleFavorite, rememberRecipe } = useApp();
   const [scale, setScale] = useState(1);
-  const recipe = useMemo(
-    () => findRecipeById(id, { contextRecipes: recipes, contextFavorites: favorites }),
-    [id, recipes, favorites],
-  );
+  const { recipe, loading, error, retry } = useRecipe(id);
 
-  // Safety net — persist whatever recipe we successfully resolved so Cook
-  // Mode can always find it later even if Inspire silently refills its pool
-  // or another page overwrites `recipes` state in between.
+  // Persist the recipe once resolved so Cook Mode and other pages keep
+  // finding it even if the pool later refills or context is overwritten.
   useEffect(() => {
     if (recipe) rememberRecipe(recipe);
   }, [recipe, rememberRecipe]);
 
+  if (loading && !recipe) {
+    return (
+      <div className="text-center py-24 space-y-4" data-testid="recipe-loading">
+        <Loader2 className="w-6 h-6 mx-auto animate-spin text-brand-primary" strokeWidth={1.7} />
+        <p className="text-sm text-brand-text-soft">Loading recipe…</p>
+      </div>
+    );
+  }
+
   if (!recipe) {
     return (
-      <div className="text-center py-24 space-y-6" data-testid="recipe-missing">
-        <h1 className="font-serif-display text-4xl text-brand-text">Recipe not found.</h1>
-        <Link to="/results">
-          <Button className="rounded-full bg-brand-primary text-white hover:bg-brand-primary-dark px-6">
-            Back to meals
+      <div className="max-w-md mx-auto text-center py-24 space-y-5" data-testid="recipe-missing">
+        <h1 className="font-serif-display text-4xl text-brand-text">Couldn&rsquo;t load this recipe.</h1>
+        <p className="text-sm text-brand-text-soft">{error || "The recipe data isn't available right now."}</p>
+        <div className="flex items-center justify-center gap-3">
+          <Button
+            data-testid="recipe-retry-btn"
+            onClick={retry}
+            disabled={loading}
+            className="rounded-full bg-brand-primary text-white hover:bg-brand-primary-dark px-6 disabled:opacity-60"
+          >
+            {loading ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" strokeWidth={1.9} />
+            ) : (
+              <RotateCcw className="w-4 h-4 mr-2" strokeWidth={1.9} />
+            )}
+            Try again
           </Button>
-        </Link>
+          <Link to="/inspire">
+            <Button variant="outline" className="rounded-full bg-white border-brand-line text-brand-text px-5">
+              Browse ideas
+            </Button>
+          </Link>
+        </div>
       </div>
     );
   }

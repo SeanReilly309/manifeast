@@ -66,3 +66,10 @@ export const inspireMeals = async (category, coach = null, count = 4, diets = []
   });
   return data;
 };
+
+// Fetch a single recipe by its stable UUID from the persistent backend
+// store. Called by useRecipe() when no local cache has the recipe.
+export const fetchRecipeById = async (id) => {
+  const { data } = await client.get(`/recipe/${encodeURIComponent(id)}`);
+  return data;
+};

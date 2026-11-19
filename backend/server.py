@@ -2,6 +2,7 @@ from fastapi import FastAPI, APIRouter, HTTPException, Request, UploadFile, File
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo import UpdateOne
 import os
 import re
 import json
@@ -280,10 +281,81 @@ async def _run_chat(
     return "".join(buf)
 
 
+# ---------- Durable per-recipe store ----------
+# Every recipe the app ever generates is also stored in MongoDB keyed by its
+# UUID. The frontend falls back to GET /api/recipe/{id} when local caches
+# miss — so navigating into a recipe (RecipeDetail, Cook Mode) is bullet-
+# proof even across sessions, pool refills, or iOS cache eviction.
+RECIPE_STORE_TTL_DAYS = 45
+
+
+async def _ensure_recipe_store_index() -> None:
+    try:
+        # Primary key index on `id` (unique) + TTL on `last_accessed`.
+        await db.recipes_store.create_index("id", unique=True)
+        await db.recipes_store.create_index(
+            "last_accessed",
+            expireAfterSeconds=RECIPE_STORE_TTL_DAYS * 24 * 3600,
+        )
+    except Exception:
+        logging.exception("recipe store index setup failed")
+
+
+async def _persist_recipes(items: List["Recipe"]) -> None:
+    """Bulk upsert the given recipes into the durable `recipes_store`
+    collection. Called by every endpoint that returns recipes so a later
+    GET /api/recipe/{id} always finds them. Silent on error — the recipe
+    is still returned in the response, so this is best-effort."""
+    if not items:
+        return
+    now_iso = datetime.now(timezone.utc).isoformat()
+    try:
+        ops = []
+        for r in items:
+            if not getattr(r, "id", None):
+                continue
+            doc = r.model_dump()
+            doc["last_accessed"] = datetime.now(timezone.utc)
+            doc["cached_at"] = now_iso
+            ops.append(
+                UpdateOne({"id": r.id}, {"$set": doc}, upsert=True)
+            )
+        if ops:
+            await db.recipes_store.bulk_write(ops, ordered=False)
+    except Exception:
+        logging.exception("recipe persistence failed")
+
+
 # ---------- Endpoints ----------
 @api_router.get("/")
 async def root():
     return {"message": "Manifeast API"}
+
+
+@api_router.get("/recipe/{recipe_id}", response_model=Recipe)
+@limiter.limit("120/hour")
+async def get_recipe(request: Request, recipe_id: str):
+    """Fetch a single recipe by its stable UUID. Called by the frontend
+    when the recipe isn't in any local cache (iOS cold start, long-stale
+    link, cache eviction). Refreshes `last_accessed` so hot recipes stay
+    alive past the 45-day TTL."""
+    if not recipe_id or len(recipe_id) > 64:
+        raise HTTPException(status_code=400, detail="Invalid recipe id")
+    doc = await db.recipes_store.find_one({"id": recipe_id})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Recipe not found")
+    try:
+        # Touch TTL — best-effort, don't block the response if it fails.
+        await db.recipes_store.update_one(
+            {"id": recipe_id},
+            {"$set": {"last_accessed": datetime.now(timezone.utc)}},
+        )
+    except Exception:
+        pass
+    doc.pop("_id", None)
+    doc.pop("cached_at", None)
+    doc.pop("last_accessed", None)
+    return Recipe(**doc)
 
 
 @api_router.post("/scan", response_model=ScanResponse)
@@ -803,6 +875,7 @@ async def suggest_recipes(request: Request, req: SuggestRequest):
 
     suggestion_id = str(uuid.uuid4())
     # Privacy: user ingredients / queries are not persisted.
+    await _persist_recipes(recipes)
     return SuggestResponse(id=suggestion_id, recipes=recipes)
 
 
@@ -877,6 +950,7 @@ async def ask_recipes(request: Request, req: AskRecipesRequest):
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
     )
+    await _persist_recipes(recipes)
     return SuggestResponse(id=suggestion_id, recipes=recipes)
 
 
@@ -904,6 +978,9 @@ async def inspire_meals(request: Request, req: InspireRequest):
                 if age < INSPIRE_CACHE_TTL_SECONDS and cached.get("recipes"):
                     cached_recipes = [Recipe(**r) for r in cached["recipes"][:n]]
                     logging.info("inspire cache HIT %s (age=%ss)", category, int(age))
+                    # Touch the recipe store so these cached recipes stay
+                    # fresh for direct-id lookups too.
+                    await _persist_recipes(cached_recipes)
                     return SuggestResponse(id=cached["id"], recipes=cached_recipes)
             except Exception:
                 logging.exception("inspire cache read failed — refetching")
@@ -1039,6 +1116,7 @@ async def inspire_meals(request: Request, req: InspireRequest):
     except Exception:
         logging.exception("inspire cache write failed — returning uncached result")
 
+    await _persist_recipes(recipes)
     return SuggestResponse(id=suggestion_id, recipes=recipes)
 
 
@@ -1387,6 +1465,11 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+
+@app.on_event("startup")
+async def startup_event():
+    await _ensure_recipe_store_index()
 
 
 @app.on_event("shutdown")
