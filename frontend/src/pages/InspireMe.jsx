@@ -23,7 +23,16 @@ const CATEGORIES = [
 const POOL_SIZE = 12;
 const PAGE_SIZE = 3;
 
-const LS_INSPIRE_CACHE = "manifeast_inspire_cache";
+const LS_INSPIRE_CACHE = "manifeast_inspire_cache_v2";
+
+// One-time migration: drop stale v1 caches so we never serve an old
+// half-formed recipe pool after an app update. Safe to run on every mount.
+(function purgeLegacyInspireCaches() {
+  try {
+    localStorage.removeItem("manifeast_inspire_cache");
+    localStorage.removeItem("manifeast_recent_recipes");
+  } catch { /* ignore */ }
+})();
 
 function readCache() {
   try {

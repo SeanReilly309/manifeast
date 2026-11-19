@@ -15,7 +15,7 @@ const LS_GOAL_CELEBRATED = "manifeast_goal_celebrated";
 // Every recipe the user *opens* is persisted here with a sliding cap.
 // Keeps Cook Mode able to find a recipe even after other pages overwrite
 // `recipes` state or Inspire silently refreshes its pool in the background.
-const LS_RECENT = "manifeast_recent_recipes";
+const LS_RECENT = "manifeast_recent_recipes_v2";
 const RECENT_RECIPES_CAP = 60;
 
 function readJSON(key, fallback) {

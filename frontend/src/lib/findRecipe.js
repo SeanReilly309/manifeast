@@ -10,10 +10,10 @@
 // hit "Recipe not found" / "No recipe to cook" even though the recipe was still
 // sitting in the Inspire cache on disk. This helper looks everywhere.
 
-const LS_INSPIRE_CACHE = "manifeast_inspire_cache";
+const LS_INSPIRE_CACHE = "manifeast_inspire_cache_v2";
 const LS_RECIPES = "wcie_recipes";
 const LS_FAVORITES = "manifeast_favorites";
-const LS_RECENT = "manifeast_recent_recipes";
+const LS_RECENT = "manifeast_recent_recipes_v2";
 
 function safeParse(raw) {
   try { return JSON.parse(raw); } catch { return null; }
