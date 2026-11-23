@@ -2,8 +2,20 @@ import { Flame, Thermometer, Clock } from "lucide-react";
 
 const chip = "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold";
 
-export const heatText = (heat) =>
-  heat ? `${heat.replace(/-/g, " ").replace(/^\w/, (c) => c.toUpperCase())} heat` : "";
+// Hob dial (1–9) and rough pan-surface temperature for each heat level.
+const HEAT_NUMBERS = {
+  low: "dial 2–3 of 9 · ~120°C pan",
+  "medium-low": "dial 4 of 9 · ~150°C pan",
+  medium: "dial 5–6 of 9 · ~175°C pan",
+  "medium-high": "dial 7 of 9 · ~200°C pan",
+  high: "dial 8–9 of 9 · ~230°C pan",
+};
+
+export const heatText = (heat) => {
+  if (!heat) return "";
+  const label = `${heat.replace(/-/g, " ").replace(/^\w/, (c) => c.toUpperCase())} heat`;
+  return HEAT_NUMBERS[heat] ? `${label} · ${HEAT_NUMBERS[heat]}` : label;
+};
 
 // "200°C · 180°C fan" for oven steps so conventional and fan ovens are both covered.
 export const tempText = (tempC, instruction = "") =>

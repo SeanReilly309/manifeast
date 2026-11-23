@@ -24,7 +24,7 @@ import {
   ingredientsForStep,
 } from "../lib/cookStep";
 import { useRecipe } from "../lib/useRecipe";
-import { tempText } from "../components/StepMeta";
+import { tempText, heatText } from "../components/StepMeta";
 import { toast } from "sonner";
 
 // Normalise whatever `recipe.steps` / `recipe.instructions` the backend gave
@@ -63,14 +63,6 @@ function buildStructuredSteps(recipe) {
     }));
   }
   return [];
-}
-
-function heatLabel(heat) {
-  if (!heat) return "";
-  return heat
-    .split("-")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join("-");
 }
 
 export default function CookMode() {
@@ -321,7 +313,7 @@ export default function CookMode() {
                     data-testid="cook-step-heat"
                     className="inline-flex items-center gap-1.5 rounded-full bg-brand-primary/10 text-brand-primary px-3 py-1.5 text-xs font-semibold"
                   >
-                    <Flame className="w-3.5 h-3.5" strokeWidth={2} /> {heatLabel(heat)} heat
+                    <Flame className="w-3.5 h-3.5" strokeWidth={2} /> {heatText(heat)}
                   </span>
                 )}
                 {typeof temperatureC === "number" && temperatureC > 0 && (

@@ -43,12 +43,15 @@ LLM_MODEL_FAST = "gpt-4o-mini"  # OpenAI's fast/cheap model
 LLM_MODEL_FASTEST = "gemini-2.5-flash"
 LLM_PROVIDER_FASTEST = "gemini"
 LLM_PROVIDER = "openai"
+# Recipe writing (Ask + Inspire): fastest model we benchmarked for full recipe JSON.
+RECIPE_PROVIDER = "anthropic"
+RECIPE_MODEL = "claude-haiku-4-5-20251001"
 
 # Cache TTL for /inspire (server-side, shared across users) — 30 min
 INSPIRE_CACHE_TTL_SECONDS = 4 * 60 * 60  # 4 hours — most users open the app more than once per session
 ASK_CACHE_TTL_SECONDS = 6 * 60 * 60
 # Bump when the recipe format/prompt changes so cached recipes regenerate.
-RECIPE_FORMAT_VERSION = 2
+RECIPE_FORMAT_VERSION = 3
 ASK_ANGLES = [
     "the classic, traditional version",
     "a quick weeknight version (ideally under 30 minutes)",
@@ -287,8 +290,10 @@ async def _run_chat(
         session_id=str(uuid.uuid4()),
         system_message=system,
     ).with_model(provider, model)
-    if json_mode:
+    if json_mode and provider == "openai":
         chat = chat.with_params(response_format={"type": "json_object"})
+    elif provider == "anthropic":
+        chat = chat.with_params(max_tokens=12000)
 
     buf = []
     try:
@@ -535,7 +540,11 @@ DIRECT_INSTRUCTIONS_RULE = (
     "MANDATORY: every hob/pan/pot step (fry, sauté, sear, simmer, boil, "
     "toast, melt) MUST set `heat` AND say it in the sentence (\"over medium "
     "heat\"); every oven/air-fryer/grill step (bake, roast, grill, preheat) "
-    "MUST set `temperature_c` AND say it in the sentence (\"at 200°C\"); "
+    "MUST set `temperature_c` AND say the exact number in the sentence (\"at "
+    "200°C\") — never 'hot oven', 'moderate oven' or 'medium oven'; grill "
+    "steps give °C (e.g. 230); microwave steps give watts (\"on 800W for 2 "
+    "minutes\"); slow-cooker steps give LOW/HIGH plus hours; deep-frying "
+    "gives the oil temperature in °C (e.g. 180). "
     "every cooking step MUST set `duration_minutes`. Do NOT return a separate "
     "`instructions` array — `steps` is the single source. NEVER return empty steps), "
 )
@@ -1016,7 +1025,7 @@ async def ask_ideas(request: Request, req: AskIdeasRequest):
         'Return ONLY JSON: {"ideas": [ {...} ]}'
     )
     try:
-        raw = await _run_chat(system, UserMessage(text=q), model=LLM_MODEL_FAST, json_mode=True)
+        raw = await _run_chat(system, UserMessage(text=q), model=RECIPE_MODEL, json_mode=True, provider=RECIPE_PROVIDER)
         data = _extract_json(raw)
     except HTTPException:
         raise
@@ -1119,7 +1128,7 @@ async def ask_recipes(request: Request, req: AskRecipesRequest):
 
     async def _fetch_once() -> List[Recipe]:
         built: List[Recipe] = []
-        raw = await _run_chat(system, user_msg, model=LLM_MODEL_FAST, json_mode=True)
+        raw = await _run_chat(system, user_msg, model=RECIPE_MODEL, json_mode=True, provider=RECIPE_PROVIDER)
         data = _extract_json(raw)
         for r in data.get("recipes", []) if isinstance(data, dict) else []:
             rec = _build_recipe(r)
@@ -1263,7 +1272,7 @@ async def inspire_meals(request: Request, req: InspireRequest):
             user_msg = UserMessage(
                 text=f"Give me {batch_n} varied {category} ideas I could make today."
             )
-            raw = await _run_chat(system, user_msg, model=LLM_MODEL_FAST, json_mode=True)
+            raw = await _run_chat(system, user_msg, model=RECIPE_MODEL, json_mode=True, provider=RECIPE_PROVIDER)
             data = _extract_json(raw)
             raw_recipes = data.get("recipes", []) if isinstance(data, dict) else []
             for r in raw_recipes:
