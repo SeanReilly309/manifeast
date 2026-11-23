@@ -49,7 +49,19 @@ RECIPE_MODEL = "claude-haiku-4-5-20251001"
 
 # Cache TTL for /inspire (server-side, shared across users) — 30 min
 INSPIRE_CACHE_TTL_SECONDS = 4 * 60 * 60  # 4 hours — most users open the app more than once per session
-ASK_CACHE_TTL_SECONDS = 6 * 60 * 60
+ASK_CACHE_TTL_SECONDS = 7 * 24 * 60 * 60  # recipes don't go stale — repeat searches stay instant for a week
+_ASK_FILLER_RE = re.compile(
+    r"^(?:(?:please|can you|could you|give me|show me|i want|i'd like|make me|how (?:do i|to) (?:make|cook)|"
+    r"recipes? for|a recipe for|some|an?|the)\s+)+|\s+(?:recipes?|please|ideas?)$",
+    re.IGNORECASE,
+)
+
+
+def _norm_query(q: str) -> str:
+    """'A recipe for Chicken Curry!' and 'chicken curry' share one cache entry."""
+    t = re.sub(r"[^\w\s&'-]", " ", q.lower())
+    t = re.sub(r"\s+", " ", t).strip()
+    return _ASK_FILLER_RE.sub("", t).strip() or t
 # Bump when the recipe format/prompt changes so cached recipes regenerate.
 RECIPE_FORMAT_VERSION = 3
 ASK_ANGLES = [
@@ -1002,13 +1014,17 @@ _EMOJI_RE = re.compile("[\U0001F000-\U0001FAFF\u2600-\u27BF\uFE0F]")
 @api_router.post("/ask-ideas", response_model=AskIdeasResponse)
 @limiter.limit("120/hour")
 async def ask_ideas(request: Request, req: AskIdeasRequest):
+    return await _ask_ideas_core(req)
+
+
+async def _ask_ideas_core(req: AskIdeasRequest) -> AskIdeasResponse:
     """Fast first phase of Ask: 3 short recipe ideas (title, photo keywords,
     time) in ~2-3s so cards appear instantly. Each full recipe is then written
     via /ask-recipes {idea_id} and the card only opens once it's complete."""
     q = _validate_text(req.query or "", MAX_QUERY_CHARS, "query")
     if not q:
         raise HTTPException(status_code=400, detail="query is required")
-    cache_key = f"ideas::{q.lower().strip()}"
+    cache_key = f"ideas::{_norm_query(q)}"
     now = datetime.now(timezone.utc)
     cached = await db.ask_cache.find_one({"key": cache_key})
     if cached and cached.get("ideas"):
@@ -1064,6 +1080,10 @@ async def ask_ideas(request: Request, req: AskIdeasRequest):
 @api_router.post("/ask-recipes", response_model=SuggestResponse)
 @limiter.limit("180/hour")
 async def ask_recipes(request: Request, req: AskRecipesRequest):
+    return await _ask_recipes_core(req)
+
+
+async def _ask_recipes_core(req: AskRecipesRequest) -> SuggestResponse:
     q = _validate_text(req.query or "", MAX_QUERY_CHARS, "query")
     if not q:
         raise HTTPException(status_code=400, detail="query is required")
@@ -1086,7 +1106,7 @@ async def ask_recipes(request: Request, req: AskRecipesRequest):
         angle = f"Return {n} DIFFERENT variations (classic + twists). "
 
     # ---- Short-lived cache (shared across all users, 6h TTL) ----
-    cache_key = f"idea::{idea.id}" if idea else f"{q.lower().strip()}::{n}::{variant}"
+    cache_key = f"idea::{idea.id}" if idea else f"{_norm_query(q)}::{n}::{variant}"
     now = datetime.now(timezone.utc)
     try:
         cached = await db.ask_cache.find_one({"key": cache_key, "format": RECIPE_FORMAT_VERSION})
@@ -1737,10 +1757,46 @@ async def _retire_incomplete_recipes() -> None:
         logging.exception("startup retire pass failed")
 
 
+POPULAR_ASKS = [
+    "spaghetti bolognese", "chicken curry", "lasagne", "pancakes", "chilli con carne",
+    "beef stew", "shepherd's pie", "fish and chips", "chicken stir fry", "carbonara",
+    "roast chicken", "burgers", "tacos", "pizza", "banana bread", "brownies",
+    "chocolate chip cookies", "omelette", "french toast", "fajitas", "risotto",
+    "salmon", "chicken wings", "mac and cheese", "pad thai", "fried rice",
+    "soup", "steak", "apple crumble", "cheesecake",
+    # Suggestion chips on the Ask screen
+    "pasta carbonara", "healthy breakfast", "protein pancakes",
+]
+
+
+async def _warm_popular_asks() -> None:
+    """Pre-write the most common Ask searches so they load instantly.
+    Skips anything already cached, so this costs nothing on later restarts."""
+    await asyncio.sleep(90)
+    sem = asyncio.Semaphore(2)
+
+    async def warm(q: str) -> None:
+        async with sem:
+            try:
+                ideas = (await _ask_ideas_core(AskIdeasRequest(query=q))).ideas
+                for idea in ideas:
+                    hit = await db.ask_cache.find_one(
+                        {"key": f"idea::{idea.id}", "format": RECIPE_FORMAT_VERSION}, {"_id": 1}
+                    )
+                    if not hit:
+                        await _ask_recipes_core(AskRecipesRequest(query=q, max_recipes=1, idea_id=idea.id))
+            except Exception:
+                logging.warning("ask warm-up failed for %r", q)
+
+    await asyncio.gather(*(warm(q) for q in POPULAR_ASKS))
+    logging.info("ask warm-up done (%s searches)", len(POPULAR_ASKS))
+
+
 @app.on_event("startup")
 async def startup_event():
     await _ensure_recipe_store_index()
     asyncio.create_task(_retire_incomplete_recipes())
+    asyncio.create_task(_warm_popular_asks())
 
 
 @app.on_event("shutdown")
