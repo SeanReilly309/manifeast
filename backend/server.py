@@ -327,6 +327,7 @@ async def _persist_recipes(items: List["Recipe"]) -> None:
             doc = r.model_dump()
             doc["last_accessed"] = datetime.now(timezone.utc)
             doc["cached_at"] = now_iso
+            doc["retired"] = False
             ops.append(
                 UpdateOne({"id": r.id}, {"$set": doc}, upsert=True)
             )
@@ -352,7 +353,7 @@ async def get_recipe(request: Request, recipe_id: str):
     if not recipe_id or len(recipe_id) > 64:
         raise HTTPException(status_code=400, detail="Invalid recipe id")
     doc = await db.recipes_store.find_one({"id": recipe_id})
-    if not doc:
+    if not doc or doc.get("retired"):
         raise HTTPException(status_code=404, detail="Recipe not found")
     try:
         # Touch TTL — best-effort, don't block the response if it fails.
@@ -365,6 +366,7 @@ async def get_recipe(request: Request, recipe_id: str):
     doc.pop("_id", None)
     doc.pop("cached_at", None)
     doc.pop("last_accessed", None)
+    doc.pop("retired", None)
     recipe = Recipe(**doc)
     # Belt-and-braces: if a stored recipe no longer passes our completeness
     # filter (e.g. it was persisted before the filter was tightened), treat
@@ -1521,9 +1523,43 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+async def _retire_incomplete_recipes() -> None:
+    """Hide every stored meal that isn't a fully cookable recipe (soft flag,
+    no deletes). Inspire categories left with too few complete recipes are
+    marked expired so they regenerate with fresh, complete ones."""
+    try:
+        retired = 0
+        async for doc in db.recipes_store.find({"retired": {"$ne": True}}, {"_id": 0, "cached_at": 0, "last_accessed": 0}):
+            try:
+                ok = _is_cookable(Recipe(**{k: v for k, v in doc.items() if k != "retired"}))
+            except Exception:
+                ok = False
+            if not ok:
+                await db.recipes_store.update_one({"id": doc.get("id")}, {"$set": {"retired": True}})
+                retired += 1
+        async for doc in db.inspire_cache.find({}):
+            good = []
+            for r in doc.get("recipes", []):
+                try:
+                    if _is_cookable(Recipe(**r)):
+                        good.append(r)
+                except Exception:
+                    pass
+            if len(good) < 3:
+                await db.inspire_cache.update_one(
+                    {"_id": doc["_id"]}, {"$set": {"created_at": "2000-01-01T00:00:00+00:00"}}
+                )
+            elif len(good) != len(doc.get("recipes", [])):
+                await db.inspire_cache.update_one({"_id": doc["_id"]}, {"$set": {"recipes": good}})
+        logging.info("startup: retired %s incomplete stored recipes", retired)
+    except Exception:
+        logging.exception("startup retire pass failed")
+
+
 @app.on_event("startup")
 async def startup_event():
     await _ensure_recipe_store_index()
+    asyncio.create_task(_retire_incomplete_recipes())
 
 
 @app.on_event("shutdown")
