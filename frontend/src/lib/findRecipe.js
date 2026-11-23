@@ -10,7 +10,9 @@
 // hit "Recipe not found" / "No recipe to cook" even though the recipe was still
 // sitting in the Inspire cache on disk. This helper looks everywhere.
 
-const LS_INSPIRE_CACHE = "manifeast_inspire_cache_v2";
+import { isCompleteRecipe } from "./recipeComplete";
+
+const LS_INSPIRE_CACHE = "manifeast_inspire_cache_v3";
 const LS_RECIPES = "wcie_recipes";
 const LS_FAVORITES = "manifeast_favorites";
 const LS_RECENT = "manifeast_recent_recipes_v2";
@@ -45,7 +47,8 @@ function readLSList(key) {
  */
 export function findRecipeById(id, { contextRecipes = [], contextFavorites = [] } = {}) {
   if (!id) return null;
-  const sameId = (r) => r && r.id === id;
+  // Incomplete local copies are skipped so useRecipe falls back to the server.
+  const sameId = (r) => r && r.id === id && isCompleteRecipe(r);
   return (
     contextRecipes.find(sameId) ||
     contextFavorites.find(sameId) ||

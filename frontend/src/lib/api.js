@@ -48,10 +48,11 @@ export const analyzeMealText = async (description, servings = 1) => {
   return data;
 };
 
-export const askRecipes = async (query, maxRecipes = 5) => {
+export const askRecipes = async (query, maxRecipes = 5, variant = null) => {
   const { data } = await client.post("/ask-recipes", {
     query,
     max_recipes: maxRecipes,
+    variant,
   });
   return data;
 };

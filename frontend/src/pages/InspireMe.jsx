@@ -7,6 +7,7 @@ import { RecipeCard } from "../components/RecipeCard";
 import { RecipeCardSkeleton } from "../components/RecipeCardSkeleton";
 import { inspireMeals } from "../lib/api";
 import { useApp } from "../context/AppContext";
+import { isCompleteRecipe } from "../lib/recipeComplete";
 
 const CATEGORIES = [
   { id: "breakfast", label: "Breakfast", icon: Sun },
@@ -23,20 +24,25 @@ const CATEGORIES = [
 const POOL_SIZE = 12;
 const PAGE_SIZE = 3;
 
-const LS_INSPIRE_CACHE = "manifeast_inspire_cache_v2";
+const LS_INSPIRE_CACHE = "manifeast_inspire_cache_v3";
 
-// One-time migration: drop stale v1 caches so we never serve an old
-// half-formed recipe pool after an app update. Safe to run on every mount.
+// Drop older on-device pools so we never serve a half-formed recipe after an update.
 (function purgeLegacyInspireCaches() {
   try {
     localStorage.removeItem("manifeast_inspire_cache");
+    localStorage.removeItem("manifeast_inspire_cache_v2");
     localStorage.removeItem("manifeast_recent_recipes");
   } catch { /* ignore */ }
 })();
 
+const onlyComplete = (list) => (Array.isArray(list) ? list.filter(isCompleteRecipe) : []);
+
 function readCache() {
   try {
-    return JSON.parse(localStorage.getItem(LS_INSPIRE_CACHE) || "{}");
+    const raw = JSON.parse(localStorage.getItem(LS_INSPIRE_CACHE) || "{}");
+    const out = {};
+    for (const cat of Object.keys(raw)) out[cat] = onlyComplete(raw[cat]);
+    return out;
   } catch {
     return {};
   }
@@ -140,7 +146,7 @@ export default function InspireMe() {
     setError(null);
     try {
       const data = await attemptWithRetry(() => inspireMeals(cat, null, POOL_SIZE, [], force));
-      const freshRecipes = data.recipes || [];
+      const freshRecipes = onlyComplete(data.recipes);
       const next = { ...byCategory, [cat]: freshRecipes };
       setByCategory(next);
       writeCache(next);
@@ -166,7 +172,7 @@ export default function InspireMe() {
     setRefilling(true);
     try {
       const data = await inspireMeals(cat, null, POOL_SIZE, [], true);
-      const fresh = data.recipes || [];
+      const fresh = onlyComplete(data.recipes);
       if (fresh.length === 0) return;
       rememberRecipes(fresh);
       setByCategory((prev) => {
@@ -196,7 +202,7 @@ export default function InspireMe() {
     // Fire all category prefetches in parallel — the backend caches them for 4h
     // so subsequent tab switches are effectively instant.
     const results = await Promise.allSettled(
-      others.map((cat) => inspireMeals(cat, null, POOL_SIZE, [], false).then((d) => [cat, d.recipes || []])),
+      others.map((cat) => inspireMeals(cat, null, POOL_SIZE, [], false).then((d) => [cat, onlyComplete(d.recipes)])),
     );
     const additions = {};
     for (const r of results) {

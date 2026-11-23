@@ -46,6 +46,12 @@ LLM_PROVIDER = "openai"
 
 # Cache TTL for /inspire (server-side, shared across users) — 30 min
 INSPIRE_CACHE_TTL_SECONDS = 4 * 60 * 60  # 4 hours — most users open the app more than once per session
+ASK_CACHE_TTL_SECONDS = 6 * 60 * 60
+ASK_ANGLES = [
+    "the classic, traditional version",
+    "a quick weeknight version (ideally under 30 minutes)",
+    "a creative twist or lighter, healthier take — clearly different from the classic",
+]
 
 # Input size limits (defence in depth against abuse and OOM)
 MAX_IMAGE_B64_CHARS = 10_000_000       # ~7.5 MB decoded
@@ -96,6 +102,7 @@ class SuggestRequest(BaseModel):
 class AskRecipesRequest(BaseModel):
     query: str
     max_recipes: int = 5
+    variant: Optional[int] = None  # 0..2 → one recipe per call with a distinct angle
 
 
 class InspireRequest(BaseModel):
@@ -336,7 +343,7 @@ async def root():
 
 
 @api_router.get("/recipe/{recipe_id}", response_model=Recipe)
-@limiter.limit("120/hour")
+@limiter.limit("600/hour")
 async def get_recipe(request: Request, recipe_id: str):
     """Fetch a single recipe by its stable UUID. Called by the frontend
     when the recipe isn't in any local cache (iOS cold start, long-stale
@@ -501,10 +508,11 @@ DIRECT_INSTRUCTIONS_RULE = (
     "fryer temperature in Celsius when relevant (e.g. 180, 200), else null. "
     "(e) `duration_minutes` is the cook/bake/rest time for this step as an "
     "integer, else null. (f) `doneness_cue` is a short visual/tactile cue "
-    '("golden brown", "fragrant", "thickened") or "". Also include `instructions` '
-    "as a plain string array mirroring each step's `instruction` for backward "
-    "compatibility. NEVER return empty steps/instructions), "
+    '("golden brown", "fragrant", "thickened") or "". Do NOT return a separate '
+    "`instructions` array — `steps` is the single source. NEVER return empty steps), "
 )
+
+_TO_TASTE_RE = re.compile(r"\b(salt|black pepper|white pepper|pepper to taste|salt and pepper)\b|^pepper$", re.IGNORECASE)
 
 
 _VALID_HEATS = {"low", "medium-low", "medium", "medium-high", "high"}
@@ -771,7 +779,9 @@ def _build_ingredients_detailed(raw) -> List["IngredientDetail"]:
     for item in raw:
         if isinstance(item, dict):
             name = str(item.get("name", "")).strip()
-            qty = str(item.get("quantity", "")).strip()
+            qty = str(item.get("quantity", "") or "").strip()
+            if not qty and _TO_TASTE_RE.search(name):
+                qty = "to taste"
             if name:
                 out.append(IngredientDetail(name=name.lower(), quantity=qty))
         elif isinstance(item, str):
@@ -890,36 +900,42 @@ async def suggest_recipes(request: Request, req: SuggestRequest):
 
 
 @api_router.post("/ask-recipes", response_model=SuggestResponse)
-@limiter.limit("60/hour")
+@limiter.limit("180/hour")
 async def ask_recipes(request: Request, req: AskRecipesRequest):
     q = _validate_text(req.query or "", MAX_QUERY_CHARS, "query")
     if not q:
         raise HTTPException(status_code=400, detail="query is required")
-    n = max(1, min(req.max_recipes, 5))
+    variant = req.variant if req.variant is not None and 0 <= req.variant < len(ASK_ANGLES) else None
+    n = 1 if variant is not None else max(1, min(req.max_recipes, 5))
+    angle = (
+        f"Make it {ASK_ANGLES[variant]}. "
+        if variant is not None
+        else f"Return {n} DIFFERENT variations (classic + twists). "
+    )
 
-    # ---- Short-lived cache (shared across all users, 30 min TTL) ----
-    # Means a popular query like "chocolate chip cookies" on a cold day
-    # returns instantly for every user after the first one.
-    cache_key = f"{q.lower().strip()}::{n}"
+    # ---- Short-lived cache (shared across all users, 6h TTL) ----
+    cache_key = f"{q.lower().strip()}::{n}::{variant}"
     now = datetime.now(timezone.utc)
     try:
         cached = await db.ask_cache.find_one({"key": cache_key})
         if cached and cached.get("recipes"):
             created = datetime.fromisoformat(cached["created_at"])
-            if (now - created).total_seconds() < 1800:  # 30 min
-                cached_recipes = [Recipe(**r) for r in cached["recipes"][:n]]
-                logging.info("ask cache HIT for %r", cache_key)
-                await _persist_recipes(cached_recipes)
-                return SuggestResponse(id=cached["id"], recipes=cached_recipes)
+            if (now - created).total_seconds() < ASK_CACHE_TTL_SECONDS:
+                cached_recipes = [
+                    rec for rec in (Recipe(**r) for r in cached["recipes"]) if _is_cookable(rec)
+                ][:n]
+                if cached_recipes:
+                    logging.info("ask cache HIT for %r", cache_key)
+                    await _persist_recipes(cached_recipes)
+                    return SuggestResponse(id=cached["id"], recipes=cached_recipes)
     except Exception:
         logging.exception("ask cache read failed")
 
-    # Single, concise system prompt. We tried parallel batches of 1-per-angle
-    # and the per-call overhead of gpt-4o-mini made it SLOWER than a single
-    # fat call. A single call for N recipes runs in ~8-11s.
+    # The frontend fires one call per variant in parallel and renders each
+    # recipe the moment it lands (~10s) instead of waiting ~30s for all three.
     system = (
         "You are a friendly recipe assistant. The user will tell you a dish, cuisine, "
-        f"or craving. Return {n} DIFFERENT variations (classic + twists). "
+        f"or craving. {angle}"
         "For each recipe return this JSON schema: "
         "title, emoji, difficulty ('easy'|'medium'|'hard'), time_minutes (int), description "
         "(one sentence), ingredients_used (list of lowercase names), missing_ingredients (empty), "
@@ -932,7 +948,9 @@ async def ask_recipes(request: Request, req: AskRecipesRequest):
         'Return ONLY JSON: {"recipes": [ {...} ]}'
     )
 
-    user_msg = UserMessage(text=f"Give me {n} different variations for: {q}")
+    user_msg = UserMessage(
+        text=f"Give me a recipe for: {q}" if variant is not None else f"Give me {n} different variations for: {q}"
+    )
 
     async def _fetch_once() -> List[Recipe]:
         built: List[Recipe] = []
@@ -989,7 +1007,7 @@ async def ask_recipes(request: Request, req: AskRecipesRequest):
 
 
 @api_router.post("/inspire", response_model=SuggestResponse)
-@limiter.limit("60/hour")
+@limiter.limit("150/hour")
 async def inspire_meals(request: Request, req: InspireRequest):
     category = (req.category or "").strip().lower()
     allowed = {"breakfast", "lunch", "dinner", "snack", "dessert"}
@@ -1010,12 +1028,14 @@ async def inspire_meals(request: Request, req: InspireRequest):
                 created = datetime.fromisoformat(cached["created_at"])
                 age = (now - created).total_seconds()
                 if age < INSPIRE_CACHE_TTL_SECONDS and cached.get("recipes"):
-                    cached_recipes = [Recipe(**r) for r in cached["recipes"][:n]]
-                    logging.info("inspire cache HIT %s (age=%ss)", category, int(age))
-                    # Touch the recipe store so these cached recipes stay
-                    # fresh for direct-id lookups too.
-                    await _persist_recipes(cached_recipes)
-                    return SuggestResponse(id=cached["id"], recipes=cached_recipes)
+                    cached_recipes = [
+                        rec for rec in (Recipe(**r) for r in cached["recipes"]) if _is_cookable(rec)
+                    ][:n]
+                    if len(cached_recipes) >= 3:
+                        logging.info("inspire cache HIT %s (age=%ss)", category, int(age))
+                        await _persist_recipes(cached_recipes)
+                        return SuggestResponse(id=cached["id"], recipes=cached_recipes)
+                    logging.info("inspire cache for %s had too few cookable recipes — refetching", category)
             except Exception:
                 logging.exception("inspire cache read failed — refetching")
 

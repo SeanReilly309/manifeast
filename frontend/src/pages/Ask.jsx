@@ -1,12 +1,16 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Search, Loader2, Sparkles } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { toast } from "sonner";
 import { RecipeCard } from "../components/RecipeCard";
+import { RecipeCardSkeleton } from "../components/RecipeCardSkeleton";
 import { askRecipes } from "../lib/api";
 import { useApp } from "../context/AppContext";
+import { isCompleteRecipe } from "../lib/recipeComplete";
+
+const VARIANTS = 3;
 
 const SUGGESTIONS = [
   "chocolate chip cookies",
@@ -20,43 +24,68 @@ const SUGGESTIONS = [
 export default function Ask() {
   const { setRecipes, rememberRecipe, rememberRecipes } = useApp();
   const [query, setQuery] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [pending, setPending] = useState(0);
+  const loading = pending > 0;
   const [results, setResults] = useState([]);
   const [lastQuery, setLastQuery] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
 
+  const searchIdRef = useRef(0);
+
+  // One request per variant fired in parallel; each card appears the moment
+  // its recipe is ready instead of waiting for all three.
   const search = useCallback(async (q) => {
     const clean = (q || "").trim();
-    if (!clean) return;
-    setLoading(true);
-    // Recipe generation can take 15-30s on the LLM. Retry once on transient
-    // network / timeout errors so a single dropped connection doesn't fail the user.
-    const attemptOnce = () => askRecipes(clean, 3);
-    try {
-      let data;
+    if (!clean || pending > 0) return;
+    const searchId = ++searchIdRef.current;
+    setResults([]);
+    setLastQuery(clean);
+    setPending(VARIANTS);
+
+    const isTransient = (err) => {
+      const status = err?.response?.status;
+      const msg = String(err?.message || "").toLowerCase();
+      return !status || [502, 503, 504].includes(status) || msg.includes("network") || msg.includes("timeout");
+    };
+    const fetchVariant = async (v) => {
       try {
-        data = await attemptOnce();
+        return await askRecipes(clean, 1, v);
       } catch (err) {
-        const msg = String(err?.message || "").toLowerCase();
-        const status = err?.response?.status;
-        const isTransient =
-          !status ||
-          status === 502 ||
-          status === 503 ||
-          status === 504 ||
-          msg.includes("network") ||
-          msg.includes("timeout");
-        if (!isTransient) throw err;
-        // brief pause then retry once
+        if (!isTransient(err)) throw err;
         await new Promise((r) => setTimeout(r, 800));
-        data = await attemptOnce();
+        return askRecipes(clean, 1, v);
       }
-      setResults(data.recipes || []);
-      setLastQuery(clean);
-      setRecipes(data.recipes || []);
-      rememberRecipes(data.recipes || []);
-    } catch (e) {
+    };
+
+    let failures = 0;
+    let lastError = null;
+    await Promise.all(
+      Array.from({ length: VARIANTS }, (_, v) =>
+        fetchVariant(v)
+          .then((data) => {
+            if (searchIdRef.current !== searchId) return;
+            const incoming = (data.recipes || []).filter(isCompleteRecipe);
+            if (incoming.length === 0) return;
+            rememberRecipes(incoming);
+            setResults((prev) => {
+              const titles = new Set(prev.map((r) => (r.title || "").toLowerCase()));
+              const next = [...prev, ...incoming.filter((r) => !titles.has((r.title || "").toLowerCase()))];
+              setRecipes(next);
+              return next;
+            });
+          })
+          .catch((e) => {
+            failures += 1;
+            lastError = e;
+          })
+          .finally(() => {
+            if (searchIdRef.current === searchId) setPending((p) => Math.max(0, p - 1));
+          }),
+      ),
+    );
+    if (searchIdRef.current === searchId && failures === VARIANTS) {
+      const e = lastError;
       const detail =
         e?.response?.data?.detail ||
         (e?.message?.toLowerCase().includes("network")
@@ -64,10 +93,8 @@ export default function Ask() {
           : e?.message) ||
         "Search failed";
       toast.error(detail);
-    } finally {
-      setLoading(false);
     }
-  }, [setRecipes, rememberRecipes]);
+  }, [pending, setRecipes, rememberRecipes]);
 
   // Auto-run search if URL has ?q=
   useEffect(() => {
@@ -139,28 +166,29 @@ export default function Ask() {
         )}
       </div>
 
-      {loading && (
-        <div className="text-center py-16 space-y-3" data-testid="ask-loading">
-          <Loader2 className="w-8 h-8 mx-auto animate-spin text-brand-primary" strokeWidth={1.5} />
-          <p className="font-serif-display text-2xl italic text-brand-text-soft">Cooking up variations…</p>
-        </div>
-      )}
-
-      {!loading && results.length > 0 && (
-        <div className="space-y-6">
-          <div className="flex items-end justify-between">
-            <div>
-              <p className="text-xs tracking-[0.22em] uppercase font-semibold text-brand-primary mb-1">
-                {results.length} takes on
-              </p>
-              <h2 className="font-serif-display text-3xl font-medium text-brand-text lowercase">
-                {lastQuery}
-              </h2>
-            </div>
+      {(loading || results.length > 0) && (
+        <div className="space-y-6" data-testid="ask-results">
+          <div>
+            <p className="text-xs tracking-[0.22em] uppercase font-semibold text-brand-primary mb-1" data-testid="ask-results-count">
+              {loading ? (
+                <span className="inline-flex items-center gap-1.5" data-testid="ask-loading">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={2} />
+                  {results.length === 0 ? "Cooking up recipes…" : `${results.length} ready · more on the way`}
+                </span>
+              ) : (
+                `${results.length} takes on`
+              )}
+            </p>
+            <h2 className="font-serif-display text-3xl font-medium text-brand-text lowercase">
+              {lastQuery}
+            </h2>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {results.map((r, i) => (
               <RecipeCard key={r.id || r.title || i} recipe={r} index={i} onOpen={handleOpen} />
+            ))}
+            {Array.from({ length: pending }, (_, i) => (
+              <RecipeCardSkeleton key={`sk-${i}`} />
             ))}
           </div>
         </div>
