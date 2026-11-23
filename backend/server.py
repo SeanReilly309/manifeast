@@ -47,6 +47,8 @@ LLM_PROVIDER = "openai"
 # Cache TTL for /inspire (server-side, shared across users) — 30 min
 INSPIRE_CACHE_TTL_SECONDS = 4 * 60 * 60  # 4 hours — most users open the app more than once per session
 ASK_CACHE_TTL_SECONDS = 6 * 60 * 60
+# Bump when the recipe format/prompt changes so cached recipes regenerate.
+RECIPE_FORMAT_VERSION = 2
 ASK_ANGLES = [
     "the classic, traditional version",
     "a quick weeknight version (ideally under 30 minutes)",
@@ -529,10 +531,22 @@ DIRECT_INSTRUCTIONS_RULE = (
     "fryer temperature in Celsius when relevant (e.g. 180, 200), else null. "
     "(e) `duration_minutes` is the cook/bake/rest time for this step as an "
     "integer, else null. (f) `doneness_cue` is a short visual/tactile cue "
-    '("golden brown", "fragrant", "thickened") or "". Do NOT return a separate '
+    '("golden brown", "fragrant", "thickened") or "". (g) TEMPERATURE IS '
+    "MANDATORY: every hob/pan/pot step (fry, sauté, sear, simmer, boil, "
+    "toast, melt) MUST set `heat` AND say it in the sentence (\"over medium "
+    "heat\"); every oven/air-fryer/grill step (bake, roast, grill, preheat) "
+    "MUST set `temperature_c` AND say it in the sentence (\"at 200°C\"); "
+    "every cooking step MUST set `duration_minutes`. Do NOT return a separate "
     "`instructions` array — `steps` is the single source. NEVER return empty steps), "
 )
 
+_HEAT_IN_TEXT_RE = re.compile(r"\b(low|medium[- ]low|medium|medium[- ]high|high)\s+heat\b", re.IGNORECASE)
+_TEMP_IN_TEXT_RE = re.compile(r"\b(\d{2,3})\s*°\s*C\b", re.IGNORECASE)
+_OVEN_WORDS_RE = re.compile(r"\b(oven|bake|baking|roast|air[- ]?fryer|grill|broil)\b", re.IGNORECASE)
+_HOB_WORDS_RE = re.compile(r"\b(fry|frying|sauté|saute|sear|simmer|boil|skillet|wok|saucepan|frying pan)\b", re.IGNORECASE)
+_OVEN_STEP_RE = re.compile(r"\b(oven|bake|roast|air[- ]?fryer)\b", re.IGNORECASE)
+_HOB_STEP_RE = re.compile(r"\b(fry|fried|sauté|saute|sear|simmer|boil|cook|melt|brown|scramble|flip|toast\w*\s+(?:in|on)\s+(?:the|a)\s+(?:pan|skillet))\b", re.IGNORECASE)
+_OFF_HEAT_RE = re.compile(r"\b(remove|take)\s+(?:\w+\s+){0,3}(?:from|off)\s+(?:the\s+)?(heat|oven|pan)\b|\b(cool|rest|serve|garnish|chill)\b", re.IGNORECASE)
 _TO_TASTE_RE = re.compile(r"\b(salt|black pepper|white pepper|pepper to taste|salt and pepper)\b|^pepper$", re.IGNORECASE)
 
 
@@ -689,12 +703,20 @@ def _build_steps(raw_steps, fallback_instructions, ingredients_detailed) -> List
             instr = _LEADING_STEP_RE.sub("", instr).strip()
             if not instr:
                 continue
+            heat = _normalise_heat(s.get("heat"))
+            if not heat:
+                m = _HEAT_IN_TEXT_RE.search(instr)
+                heat = _normalise_heat(m.group(1)) if m else ""
+            temp_c = _coerce_opt_int(s.get("temperature_c") or s.get("temperature"))
+            if not temp_c:
+                m = _TEMP_IN_TEXT_RE.search(instr)
+                temp_c = int(m.group(1)) if m else None
             out.append(CookStep(
                 number=_coerce_int(s.get("number"), i),
                 instruction=instr,
                 ingredients=_step_ingredients_for(instr, s.get("ingredients")),
-                heat=_normalise_heat(s.get("heat")),
-                temperature_c=_coerce_opt_int(s.get("temperature_c") or s.get("temperature")),
+                heat=heat,
+                temperature_c=temp_c,
                 duration_minutes=_coerce_opt_int(s.get("duration_minutes") or s.get("duration") or s.get("time_minutes")),
                 doneness_cue=str(s.get("doneness_cue") or s.get("cue") or "").strip(),
             ))
@@ -709,6 +731,25 @@ def _build_steps(raw_steps, fallback_instructions, ingredients_detailed) -> List
                 instruction=text.strip(),
                 ingredients=_step_ingredients_for(text, None),
             ))
+    # Every cooking step should say how hot: read it from the sentence, else
+    # carry forward the pan heat / oven temperature set earlier in the recipe.
+    last_heat, last_temp = "", None
+    for s in out:
+        if not s.heat:
+            m = _HEAT_IN_TEXT_RE.search(s.instruction)
+            if m:
+                s.heat = _normalise_heat(m.group(1))
+        if not s.temperature_c:
+            m = _TEMP_IN_TEXT_RE.search(s.instruction)
+            if m:
+                s.temperature_c = int(m.group(1))
+        removing = _OFF_HEAT_RE.search(s.instruction)
+        if not s.temperature_c and last_temp and _OVEN_STEP_RE.search(s.instruction) and not removing:
+            s.temperature_c = last_temp
+        if not s.heat and not s.temperature_c and not removing and _HOB_STEP_RE.search(s.instruction):
+            s.heat = "high" if re.search(r"\b(boil|bring to the boil)", s.instruction, re.IGNORECASE) else last_heat
+        last_heat = s.heat or last_heat
+        last_temp = s.temperature_c or last_temp
     # Renumber defensively — LLMs sometimes return 1,1,2 or 1,3,4.
     for i, s in enumerate(out, 1):
         s.number = i
@@ -770,6 +811,13 @@ def _is_cookable(recipe: "Recipe") -> bool:
             (s.heat or "") or (s.temperature_c and s.temperature_c > 0) or (s.duration_minutes and s.duration_minutes > 0)
             for s in steps
         ):
+            return False
+        # Users must always know how hot to cook: oven recipes need a °C,
+        # hob recipes need a heat level.
+        text = " ".join(s.instruction for s in steps)
+        if _OVEN_WORDS_RE.search(text) and not any(s.temperature_c for s in steps):
+            return False
+        if _HOB_WORDS_RE.search(text) and not any(s.heat for s in steps):
             return False
     elif instructions:
         if sum(1 for t in instructions if isinstance(t, str) and t.strip()) < 3:
@@ -1032,7 +1080,7 @@ async def ask_recipes(request: Request, req: AskRecipesRequest):
     cache_key = f"idea::{idea.id}" if idea else f"{q.lower().strip()}::{n}::{variant}"
     now = datetime.now(timezone.utc)
     try:
-        cached = await db.ask_cache.find_one({"key": cache_key})
+        cached = await db.ask_cache.find_one({"key": cache_key, "format": RECIPE_FORMAT_VERSION})
         if cached and cached.get("recipes"):
             created = datetime.fromisoformat(cached["created_at"])
             if (now - created).total_seconds() < ASK_CACHE_TTL_SECONDS:
@@ -1121,6 +1169,7 @@ async def ask_recipes(request: Request, req: AskRecipesRequest):
                 "id": suggestion_id,
                 "recipes": [r.model_dump() for r in recipes],
                 "created_at": datetime.now(timezone.utc).isoformat(),
+                "format": RECIPE_FORMAT_VERSION,
             }},
             upsert=True,
         )
@@ -1146,7 +1195,7 @@ async def inspire_meals(request: Request, req: InspireRequest):
     # ---- Server-side cache (shared across all users, 30 min TTL) ----
     now = datetime.now(timezone.utc)
     if not force_refresh:
-        cached = await db.inspire_cache.find_one({"category": category})
+        cached = await db.inspire_cache.find_one({"category": category, "format": RECIPE_FORMAT_VERSION})
         if cached:
             try:
                 created = datetime.fromisoformat(cached["created_at"])
@@ -1170,7 +1219,7 @@ async def inspire_meals(request: Request, req: InspireRequest):
     # cookability filter (ingredients must all have quantities, >=3 steps
     # with real cooking metadata, etc.) can discard mediocre recipes and
     # still leave us with >= n keepers.
-    BATCH_SIZE = 4
+    BATCH_SIZE = 3
     # Over-fetch by ~60% so we have headroom after the strict filter rejects
     # under-specified recipes.
     target_fetch = max(n + 4, int(n * 1.6))
@@ -1287,6 +1336,7 @@ async def inspire_meals(request: Request, req: InspireRequest):
                     "category": category,
                     "recipes": [r.model_dump() for r in recipes],
                     "created_at": now.isoformat(),
+                    "format": RECIPE_FORMAT_VERSION,
                 }
             },
             upsert=True,

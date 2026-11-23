@@ -24,6 +24,7 @@ import {
   ingredientsForStep,
 } from "../lib/cookStep";
 import { useRecipe } from "../lib/useRecipe";
+import { tempText } from "../components/StepMeta";
 import { toast } from "sonner";
 
 // Normalise whatever `recipe.steps` / `recipe.instructions` the backend gave
@@ -328,7 +329,7 @@ export default function CookMode() {
                     data-testid="cook-step-temp"
                     className="inline-flex items-center gap-1.5 rounded-full bg-brand-secondary/15 text-brand-secondary-dark px-3 py-1.5 text-xs font-semibold"
                   >
-                    <Thermometer className="w-3.5 h-3.5" strokeWidth={2} /> {temperatureC}°C
+                    <Thermometer className="w-3.5 h-3.5" strokeWidth={2} /> {tempText(temperatureC, currentStep?.instruction)}
                   </span>
                 )}
                 {typeof durationMin === "number" && durationMin > 0 && (

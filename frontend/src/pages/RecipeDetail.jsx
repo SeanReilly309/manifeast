@@ -7,6 +7,7 @@ import { useApp } from "../context/AppContext";
 import { recipeImage, fallbackFoodImage } from "../lib/recipeImage";
 import { scaleQuantity, scaleServings } from "../lib/scale";
 import { useRecipe } from "../lib/useRecipe";
+import { StepMeta } from "../components/StepMeta";
 
 const SCALES = [
   { value: 0.5, label: "½×" },
@@ -344,12 +345,18 @@ export default function RecipeDetail() {
           </p>
         </div>
         <ol className="md:col-span-2 space-y-5" data-testid="instruction-list">
-          {(recipe.instructions || []).map((step, idx2) => (
-            <li key={`${idx2}-${step.slice(0, 24)}`} className="flex gap-5">
+          {(recipe.steps?.length
+            ? recipe.steps
+            : (recipe.instructions || []).map((instruction) => ({ instruction }))
+          ).map((step, idx2) => (
+            <li key={`${idx2}-${step.instruction.slice(0, 24)}`} className="flex gap-5" data-testid={`instruction-step-${idx2}`}>
               <span className="font-serif-display text-3xl italic text-brand-primary/70 w-10 leading-none flex-shrink-0">
                 {String(idx2 + 1).padStart(2, "0")}
               </span>
-              <p className="text-brand-text leading-relaxed pt-1">{step}</p>
+              <div className="pt-1">
+                <p className="text-brand-text leading-relaxed">{step.instruction}</p>
+                <StepMeta step={step} testid={`instruction-step-meta-${idx2}`} />
+              </div>
             </li>
           ))}
         </ol>
