@@ -895,46 +895,54 @@ async def ask_recipes(request: Request, req: AskRecipesRequest):
     q = _validate_text(req.query or "", MAX_QUERY_CHARS, "query")
     if not q:
         raise HTTPException(status_code=400, detail="query is required")
-    n = max(3, min(req.max_recipes, 5))
-    # Ask is a live user interaction — cap at 3 for speed (LLM is slow with more).
+    n = max(1, min(req.max_recipes, 5))
 
+    # ---- Short-lived cache (shared across all users, 30 min TTL) ----
+    # Means a popular query like "chocolate chip cookies" on a cold day
+    # returns instantly for every user after the first one.
+    cache_key = f"{q.lower().strip()}::{n}"
+    now = datetime.now(timezone.utc)
+    try:
+        cached = await db.ask_cache.find_one({"key": cache_key})
+        if cached and cached.get("recipes"):
+            created = datetime.fromisoformat(cached["created_at"])
+            if (now - created).total_seconds() < 1800:  # 30 min
+                cached_recipes = [Recipe(**r) for r in cached["recipes"][:n]]
+                logging.info("ask cache HIT for %r", cache_key)
+                await _persist_recipes(cached_recipes)
+                return SuggestResponse(id=cached["id"], recipes=cached_recipes)
+    except Exception:
+        logging.exception("ask cache read failed")
+
+    # Single, concise system prompt. We tried parallel batches of 1-per-angle
+    # and the per-call overhead of gpt-4o-mini made it SLOWER than a single
+    # fat call. A single call for N recipes runs in ~8-11s.
     system = (
-        "You are a friendly recipe assistant. The user will tell you a dish, cuisine, or "
-        f"craving. Return {n} DIFFERENT variations of it &mdash; classic, plus interesting "
-        "twists (e.g. for 'cookies': classic chocolate chip, oatmeal raisin, peanut butter, "
-        "no-bake, and one creative one). For each recipe return the same JSON schema as before: "
+        "You are a friendly recipe assistant. The user will tell you a dish, cuisine, "
+        f"or craving. Return {n} DIFFERENT variations (classic + twists). "
+        "For each recipe return this JSON schema: "
         "title, emoji, difficulty ('easy'|'medium'|'hard'), time_minutes (int), description "
-        "(one sentence), ingredients_used (the full ingredient list, lowercase names only), "
-        "missing_ingredients (empty array here since we don't know what they have), "
-        "ingredients_detailed (REQUIRED — a complete ingredient list as an array of objects like "
-        '{"name": "all-purpose flour", "quantity": "2 1/4 cups (280g)"} or '
-        '{"name": "large eggs", "quantity": "2"} or {"name": "vanilla extract", "quantity": "1 tsp"}. '
-        "Include EVERY ingredient with realistic measured quantities — cups/tbsp/tsp/g/ml/whole units. "
-        "Do not omit staples like salt or oil), "
+        "(one sentence), ingredients_used (list of lowercase names), missing_ingredients (empty), "
+        "ingredients_detailed (REQUIRED — array of {name, quantity} objects covering every ingredient "
+        "with measured quantities, do not omit staples), "
         + DIRECT_INSTRUCTIONS_RULE +
-        "servings (int, default 2), "
-        'yield_text (REQUIRED — short human-readable output like "Makes 24 cookies", '
-        '"1 loaf (10 slices)", "Serves 4", "About 12 muffins"), '
-        "nutrition object (calories, protein_g, fat_g, carbs_g per serving as integers, realistic), and "
-        "image_query (2-4 lowercase comma-separated keywords describing the finished dish "
-        "for a food photo, e.g. 'chocolate chip cookies, close up'). "
-        'Return ONLY JSON: {"recipes": [ {...}, {...} ]}'
+        "servings (int, default 2), yield_text (REQUIRED short human-readable yield), "
+        "nutrition {calories, protein_g, fat_g, carbs_g} per serving as realistic ints, "
+        "image_query (2-4 keywords for a food photo). "
+        'Return ONLY JSON: {"recipes": [ {...} ]}'
     )
 
     user_msg = UserMessage(text=f"Give me {n} different variations for: {q}")
+
     async def _fetch_once() -> List[Recipe]:
-        built_recipes: List[Recipe] = []
-        # Use the faster model + json_mode for Ask — the prompt is text-only and
-        # gpt-4o-mini is 3-4x faster than gpt-4o here, which prevents the timeout
-        # / "network error" Apple reviewers hit on iPad.
+        built: List[Recipe] = []
         raw = await _run_chat(system, user_msg, model=LLM_MODEL_FAST, json_mode=True)
         data = _extract_json(raw)
-        raw_recipes = data.get("recipes", []) if isinstance(data, dict) else []
-        for r in raw_recipes:
-            built = _build_recipe(r)
-            if _is_cookable(built):
-                built_recipes.append(built)
-        return built_recipes
+        for r in data.get("recipes", []) if isinstance(data, dict) else []:
+            rec = _build_recipe(r)
+            if _is_cookable(rec):
+                built.append(rec)
+        return built
 
     recipes: List[Recipe] = []
     try:
@@ -951,6 +959,8 @@ async def ask_recipes(request: Request, req: AskRecipesRequest):
     if not recipes:
         raise HTTPException(status_code=500, detail="No recipes returned")
 
+    recipes = recipes[:n]
+
     suggestion_id = str(uuid.uuid4())
     await db.suggestions.insert_one(
         {
@@ -960,6 +970,20 @@ async def ask_recipes(request: Request, req: AskRecipesRequest):
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
     )
+    # Store in the ask cache so repeat queries are instant.
+    try:
+        await db.ask_cache.update_one(
+            {"key": cache_key},
+            {"$set": {
+                "key": cache_key,
+                "id": suggestion_id,
+                "recipes": [r.model_dump() for r in recipes],
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            }},
+            upsert=True,
+        )
+    except Exception:
+        logging.exception("ask cache write failed")
     await _persist_recipes(recipes)
     return SuggestResponse(id=suggestion_id, recipes=recipes)
 
