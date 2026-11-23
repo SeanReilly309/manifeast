@@ -1,5 +1,5 @@
 import { memo, useState } from "react";
-import { Clock, ChefHat, ArrowRight, Heart, ShoppingBasket } from "lucide-react";
+import { Clock, ChefHat, ArrowRight, Heart, ShoppingBasket, Loader2 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { recipeImage, fallbackFoodImage, recipeGradient } from "../lib/recipeImage";
 import { ShopIngredientPicker } from "./ShopIngredientPicker";
@@ -10,7 +10,7 @@ function difficultyTone(d) {
   return "bg-brand-primary/15 text-brand-primary";
 }
 
-function RecipeCardBase({ recipe, index, onOpen }) {
+function RecipeCardBase({ recipe, index, onOpen, writing = false }) {
   const { isFavorite, toggleFavorite } = useApp();
   const [shopOpen, setShopOpen] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
@@ -34,7 +34,7 @@ function RecipeCardBase({ recipe, index, onOpen }) {
 
   return (
     <article
-      data-testid={`recipe-card-${index}`}
+      data-testid={writing ? `recipe-card-writing-${index}` : `recipe-card-${index}`}
       onClick={() => onOpen(recipe, index)}
       className="cursor-pointer group bg-white border border-brand-line rounded-3xl overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
     >
@@ -67,7 +67,16 @@ function RecipeCardBase({ recipe, index, onOpen }) {
             </span>
           )}
         </div>
-        <button
+        {writing && (
+          <div
+            data-testid={`recipe-card-writing-badge-${index}`}
+            className="absolute bottom-3 left-3 px-3 py-1.5 rounded-full text-xs font-semibold bg-white/95 text-brand-text flex items-center gap-1.5 shadow-sm"
+          >
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-primary" strokeWidth={2} />
+            Writing full recipe…
+          </div>
+        )}
+        {!writing && <button
           type="button"
           data-testid={`fav-btn-${index}`}
           onClick={handleFavClick}
@@ -79,8 +88,8 @@ function RecipeCardBase({ recipe, index, onOpen }) {
           }`}
         >
           <Heart className="w-5 h-5" strokeWidth={1.8} fill={fav ? "currentColor" : "none"} />
-        </button>
-        <button
+        </button>}
+        {!writing && <button
           type="button"
           data-testid={`shop-btn-${index}`}
           onClick={handleAddToShop}
@@ -88,7 +97,7 @@ function RecipeCardBase({ recipe, index, onOpen }) {
           className="absolute top-16 right-3 w-10 h-10 rounded-full flex items-center justify-center transition-all backdrop-blur-md bg-white/90 text-brand-text-soft hover:text-brand-secondary-dark hover:scale-105"
         >
           <ShoppingBasket className="w-5 h-5" strokeWidth={1.8} />
-        </button>
+        </button>}
         <div className="absolute bottom-3 right-3 w-9 h-9 rounded-full bg-white/90 flex items-center justify-center text-lg">
           {recipe.emoji || "🍽️"}
         </div>
@@ -127,9 +136,9 @@ function RecipeCardBase({ recipe, index, onOpen }) {
           <ArrowRight className="w-4 h-4" strokeWidth={1.7} />
         </div>
       </div>
-      <div onClick={(e) => e.stopPropagation()}>
+      {!writing && <div onClick={(e) => e.stopPropagation()}>
         <ShopIngredientPicker recipe={recipe} open={shopOpen} onOpenChange={setShopOpen} />
-      </div>
+      </div>}
     </article>
   );
 }

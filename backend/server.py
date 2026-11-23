@@ -103,6 +103,25 @@ class AskRecipesRequest(BaseModel):
     query: str
     max_recipes: int = 5
     variant: Optional[int] = None  # 0..2 → one recipe per call with a distinct angle
+    idea_id: Optional[str] = None  # from /ask-ideas → write the full recipe for that idea
+
+
+class AskIdeasRequest(BaseModel):
+    query: str
+
+
+class RecipeIdea(BaseModel):
+    id: str
+    title: str
+    emoji: str = "🍽️"
+    description: str = ""
+    difficulty: str = "easy"
+    time_minutes: int = 30
+    image_query: str = ""
+
+
+class AskIdeasResponse(BaseModel):
+    ideas: List[RecipeIdea]
 
 
 class InspireRequest(BaseModel):
@@ -920,6 +939,71 @@ async def suggest_recipes(request: Request, req: SuggestRequest):
     return SuggestResponse(id=suggestion_id, recipes=recipes)
 
 
+_EMOJI_RE = re.compile("[\U0001F000-\U0001FAFF\u2600-\u27BF\uFE0F]")
+
+
+@api_router.post("/ask-ideas", response_model=AskIdeasResponse)
+@limiter.limit("120/hour")
+async def ask_ideas(request: Request, req: AskIdeasRequest):
+    """Fast first phase of Ask: 3 short recipe ideas (title, photo keywords,
+    time) in ~2-3s so cards appear instantly. Each full recipe is then written
+    via /ask-recipes {idea_id} and the card only opens once it's complete."""
+    q = _validate_text(req.query or "", MAX_QUERY_CHARS, "query")
+    if not q:
+        raise HTTPException(status_code=400, detail="query is required")
+    cache_key = f"ideas::{q.lower().strip()}"
+    now = datetime.now(timezone.utc)
+    cached = await db.ask_cache.find_one({"key": cache_key})
+    if cached and cached.get("ideas"):
+        if (now - datetime.fromisoformat(cached["created_at"])).total_seconds() < ASK_CACHE_TTL_SECONDS:
+            return AskIdeasResponse(ideas=[RecipeIdea(**i) for i in cached["ideas"]])
+
+    angles = "; ".join(f"{i + 1}) {a}" for i, a in enumerate(ASK_ANGLES))
+    system = (
+        "You are a recipe assistant. The user names a dish, cuisine or craving. "
+        f"Suggest exactly {len(ASK_ANGLES)} clearly different, real, cookable recipes in this order: {angles}. "
+        "Each title must be unique and reflect its angle. For each return: title, emoji (one food emoji), "
+        "description (max 15 words), difficulty ('easy'|'medium'|'hard'), time_minutes (int total), "
+        "image_query (2-4 lowercase keywords for a food photo of the finished dish). "
+        'Return ONLY JSON: {"ideas": [ {...} ]}'
+    )
+    try:
+        raw = await _run_chat(system, UserMessage(text=q), model=LLM_MODEL_FAST, json_mode=True)
+        data = _extract_json(raw)
+    except HTTPException:
+        raise
+    except Exception:
+        logging.exception("ask-ideas failed")
+        raise HTTPException(status_code=500, detail="Recipe search failed")
+
+    ideas: List[RecipeIdea] = []
+    seen = set()
+    for it in (data.get("ideas", []) if isinstance(data, dict) else [])[: len(ASK_ANGLES)]:
+        if not isinstance(it, dict):
+            continue
+        title = _EMOJI_RE.sub("", str(it.get("title", ""))).strip()
+        if not title or title.lower() in seen:
+            continue
+        seen.add(title.lower())
+        ideas.append(RecipeIdea(
+            id=str(uuid.uuid4()),
+            title=title,
+            emoji=str(it.get("emoji", "🍽️")).strip() or "🍽️",
+            description=str(it.get("description", "")).strip(),
+            difficulty=str(it.get("difficulty", "easy")).strip().lower(),
+            time_minutes=max(1, _coerce_int(it.get("time_minutes"), 30)),
+            image_query=str(it.get("image_query", "")).strip().lower(),
+        ))
+    if not ideas:
+        raise HTTPException(status_code=500, detail="No recipes returned")
+    await db.ask_cache.update_one(
+        {"key": cache_key},
+        {"$set": {"key": cache_key, "ideas": [i.model_dump() for i in ideas], "created_at": now.isoformat()}},
+        upsert=True,
+    )
+    return AskIdeasResponse(ideas=ideas)
+
+
 @api_router.post("/ask-recipes", response_model=SuggestResponse)
 @limiter.limit("180/hour")
 async def ask_recipes(request: Request, req: AskRecipesRequest):
@@ -927,15 +1011,25 @@ async def ask_recipes(request: Request, req: AskRecipesRequest):
     if not q:
         raise HTTPException(status_code=400, detail="query is required")
     variant = req.variant if req.variant is not None and 0 <= req.variant < len(ASK_ANGLES) else None
-    n = 1 if variant is not None else max(1, min(req.max_recipes, 5))
-    angle = (
-        f"Make it {ASK_ANGLES[variant]}, and make the title clearly reflect that angle. "
-        if variant is not None
-        else f"Return {n} DIFFERENT variations (classic + twists). "
-    )
+    idea = None
+    if req.idea_id:
+        doc = await db.ask_cache.find_one({"ideas.id": req.idea_id}, {"ideas.$": 1})
+        if not doc:
+            raise HTTPException(status_code=404, detail="Recipe idea not found — please search again")
+        idea = RecipeIdea(**doc["ideas"][0])
+    n = 1 if (variant is not None or idea) else max(1, min(req.max_recipes, 5))
+    if idea:
+        angle = (
+            f'Write the complete recipe for "{idea.title}" — {idea.description} '
+            f"Keep exactly that title. "
+        )
+    elif variant is not None:
+        angle = f"Make it {ASK_ANGLES[variant]}, and make the title clearly reflect that angle. "
+    else:
+        angle = f"Return {n} DIFFERENT variations (classic + twists). "
 
     # ---- Short-lived cache (shared across all users, 6h TTL) ----
-    cache_key = f"{q.lower().strip()}::{n}::{variant}"
+    cache_key = f"idea::{idea.id}" if idea else f"{q.lower().strip()}::{n}::{variant}"
     now = datetime.now(timezone.utc)
     try:
         cached = await db.ask_cache.find_one({"key": cache_key})
@@ -970,7 +1064,9 @@ async def ask_recipes(request: Request, req: AskRecipesRequest):
     )
 
     user_msg = UserMessage(
-        text=f"Give me a recipe for: {q}" if variant is not None else f"Give me {n} different variations for: {q}"
+        text=f'Give me the full recipe for "{idea.title}"' if idea
+        else f"Give me a recipe for: {q}" if variant is not None
+        else f"Give me {n} different variations for: {q}"
     )
 
     async def _fetch_once() -> List[Recipe]:
@@ -980,6 +1076,13 @@ async def ask_recipes(request: Request, req: AskRecipesRequest):
         for r in data.get("recipes", []) if isinstance(data, dict) else []:
             rec = _build_recipe(r)
             if _is_cookable(rec):
+                if idea:
+                    # Same id/title/photo as the card the user is already looking at.
+                    rec.id = idea.id
+                    rec.title = idea.title
+                    rec.emoji = idea.emoji
+                    rec.image_query = idea.image_query or rec.image_query
+                    rec.description = idea.description or rec.description
                 built.append(rec)
         return built
 

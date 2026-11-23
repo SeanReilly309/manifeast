@@ -119,3 +119,4 @@ Take a photo of fridge/cupboard → app tells you 3–5 meal ideas, difficulty, 
 - Rate limits: recipe 600/h, ask 180/h, inspire 150/h
 - Production/TestFlight get these only after redeploy + Save to Github/Codemagic build
 - Open: Ask→Back fix untested by agent; loremflickr chicken fallback photo on non-chicken dishes
+- 2026-06 Ask two-phase: POST /api/ask-ideas (3 ideas, ~3s, cached 6h in ask_cache key ideas::q) → cards show instantly with "Writing full recipe…" badge (not openable); POST /api/ask-recipes {idea_id} writes full recipe with same id/title/photo (~9-14s each, parallel, cached key idea::<id>). Unknown idea_id → 404. Fallback to variant calls if ideas fail.

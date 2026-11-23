@@ -6,7 +6,7 @@ import { Input } from "../components/ui/input";
 import { toast } from "sonner";
 import { RecipeCard } from "../components/RecipeCard";
 import { RecipeCardSkeleton } from "../components/RecipeCardSkeleton";
-import { askRecipes } from "../lib/api";
+import { askIdeas, askRecipes } from "../lib/api";
 import { useApp } from "../context/AppContext";
 import { isCompleteRecipe } from "../lib/recipeComplete";
 
@@ -24,24 +24,32 @@ const SUGGESTIONS = [
 export default function Ask() {
   const { setRecipes, rememberRecipe, rememberRecipes } = useApp();
   const [query, setQuery] = useState("");
-  const [pending, setPending] = useState(0);
-  const loading = pending > 0;
-  const [results, setResults] = useState([]);
+  const [slots, setSlots] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const loading = busy;
+  const results = slots.filter((s) => s.ready).map((s) => s.recipe);
   const [lastQuery, setLastQuery] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
 
   const searchIdRef = useRef(0);
 
-  // One request per variant fired in parallel; each card appears the moment
-  // its recipe is ready instead of waiting for all three.
+  useEffect(() => {
+    if (results.length > 0) setRecipes(results);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slots]);
+
+  // Phase 1: quick ideas (~2-3s) so cards show almost instantly.
+  // Phase 2: each card's full recipe is written in parallel; a card only
+  // opens once its complete recipe has arrived.
   const search = useCallback(async (q) => {
     const clean = (q || "").trim();
-    if (!clean || pending > 0) return;
+    if (!clean || busy) return;
     const searchId = ++searchIdRef.current;
-    setResults([]);
+    const stale = () => searchIdRef.current !== searchId;
+    setSlots([]);
     setLastQuery(clean);
-    setPending(VARIANTS);
+    setBusy(true);
     // Keep the query in the URL so Back from a recipe re-shows results (cached server-side).
     if (new URLSearchParams(location.search).get("q") !== clean) {
       navigate(`/ask?q=${encodeURIComponent(clean)}`, { replace: true });
@@ -52,53 +60,69 @@ export default function Ask() {
       const msg = String(err?.message || "").toLowerCase();
       return !status || [502, 503, 504].includes(status) || msg.includes("network") || msg.includes("timeout");
     };
-    const fetchVariant = async (v) => {
+    const withRetry = async (fn) => {
       try {
-        return await askRecipes(clean, 1, v);
+        return await fn();
       } catch (err) {
         if (!isTransient(err)) throw err;
         await new Promise((r) => setTimeout(r, 800));
-        return askRecipes(clean, 1, v);
+        return fn();
       }
     };
+    const removeSlot = (key) => setSlots((prev) => prev.filter((s) => s.key !== key));
 
     let failures = 0;
     let lastError = null;
-    await Promise.all(
-      Array.from({ length: VARIANTS }, (_, v) =>
-        fetchVariant(v)
-          .then((data) => {
-            if (searchIdRef.current !== searchId) return;
-            const incoming = (data.recipes || []).filter(isCompleteRecipe);
-            if (incoming.length === 0) return;
-            rememberRecipes(incoming);
-            setResults((prev) => {
-              const ids = new Set(prev.map((r) => r.id));
-              const next = [...prev, ...incoming.filter((r) => !ids.has(r.id))];
-              setRecipes(next);
-              return next;
-            });
-          })
-          .catch((e) => {
-            failures += 1;
-            lastError = e;
-          })
-          .finally(() => {
-            if (searchIdRef.current === searchId) setPending((p) => Math.max(0, p - 1));
-          }),
-      ),
-    );
-    if (searchIdRef.current === searchId && failures === VARIANTS) {
-      const e = lastError;
-      const detail =
-        e?.response?.data?.detail ||
-        (e?.message?.toLowerCase().includes("network")
-          ? "Recipe generation timed out. Please try again — the AI can be slow."
-          : e?.message) ||
-        "Search failed";
-      toast.error(detail);
+    try {
+      let ideas = [];
+      try {
+        ideas = (await withRetry(() => askIdeas(clean))).ideas || [];
+      } catch (e) {
+        lastError = e;
+      }
+      if (stale()) return;
+      const jobs = ideas.length
+        ? ideas.map((idea) => ({ key: idea.id, idea, run: () => askRecipes(clean, 1, null, idea.id) }))
+        : Array.from({ length: VARIANTS }, (_, v) => ({ key: `v${v}`, idea: null, run: () => askRecipes(clean, 1, v) }));
+      setSlots(jobs.filter((j) => j.idea).map((j) => ({ key: j.key, recipe: j.idea, ready: false })));
+
+      await Promise.all(
+        jobs.map((j) =>
+          withRetry(j.run)
+            .then((data) => {
+              if (stale()) return;
+              const rec = (data.recipes || []).find(isCompleteRecipe);
+              if (!rec) return removeSlot(j.key);
+              rememberRecipes([rec]);
+              setSlots((prev) => {
+                if (prev.some((s) => s.key === j.key)) {
+                  return prev.map((s) => (s.key === j.key ? { key: j.key, recipe: rec, ready: true } : s));
+                }
+                if (prev.some((s) => s.recipe.id === rec.id)) return prev;
+                return [...prev, { key: j.key, recipe: rec, ready: true }];
+              });
+            })
+            .catch((e) => {
+              failures += 1;
+              lastError = e;
+              if (!stale()) removeSlot(j.key);
+            }),
+        ),
+      );
+      if (!stale() && failures === jobs.length) {
+        const e = lastError;
+        const detail =
+          e?.response?.data?.detail ||
+          (e?.message?.toLowerCase().includes("network")
+            ? "Recipe generation timed out. Please try again — the AI can be slow."
+            : e?.message) ||
+          "Search failed";
+        toast.error(detail);
+      }
+    } finally {
+      if (!stale()) setBusy(false);
     }
-  }, [pending, setRecipes, rememberRecipes, location.search, navigate]);
+  }, [busy, rememberRecipes, location.search, navigate]);
 
   // Auto-run search if URL has ?q=
   useEffect(() => {
@@ -112,6 +136,10 @@ export default function Ask() {
   }, [location.search]);
 
   const handleOpen = (recipe) => {
+    if (!isCompleteRecipe(recipe)) {
+      toast("Still writing this recipe — just a few more seconds.");
+      return;
+    }
     rememberRecipe(recipe);
     navigate(`/recipe/${recipe.id}`);
   };
@@ -177,7 +205,7 @@ export default function Ask() {
               {loading ? (
                 <span className="inline-flex items-center gap-1.5" data-testid="ask-loading">
                   <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={2} />
-                  {results.length === 0 ? "Cooking up recipes…" : `${results.length} ready · more on the way`}
+                  {slots.length === 0 ? "Finding recipes…" : `${results.length} of ${slots.length} ready · writing recipes`}
                 </span>
               ) : (
                 `${results.length} takes on`
@@ -188,10 +216,10 @@ export default function Ask() {
             </h2>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {results.map((r, i) => (
-              <RecipeCard key={r.id || r.title || i} recipe={r} index={i} onOpen={handleOpen} />
+            {slots.map((s, i) => (
+              <RecipeCard key={s.key} recipe={s.recipe} index={i} onOpen={handleOpen} writing={!s.ready} />
             ))}
-            {Array.from({ length: pending }, (_, i) => (
+            {busy && Array.from({ length: Math.max(0, VARIANTS - slots.length) }, (_, i) => (
               <RecipeCardSkeleton key={`sk-${i}`} />
             ))}
           </div>
