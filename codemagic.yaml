@@ -94,14 +94,16 @@ workflows:
                   },
               },
           }
+          data["ITSAppUsesNonExemptEncryption"] = False
           p.write_bytes(plistlib.dumps(data))
-          print("ATS block injected via plistlib")
+          print("ATS block + export compliance injected via plistlib")
           PY
           echo "=== Info.plist after permission patch ==="
           /usr/libexec/PlistBuddy -c "Print :NSCameraUsageDescription" App/Info.plist
           /usr/libexec/PlistBuddy -c "Print :NSPhotoLibraryUsageDescription" App/Info.plist
           echo "=== ATS block ==="
           /usr/libexec/PlistBuddy -c "Print :NSAppTransportSecurity" App/Info.plist
+          /usr/libexec/PlistBuddy -c "Print :ITSAppUsesNonExemptEncryption" App/Info.plist
 
       - name: Fetch or create signing files
         script: |
@@ -269,5 +271,5 @@ workflows:
         # allows assigning builds to *internal* beta groups (it returns
         # "Cannot add internal group to a build"), so we don't list
         # `beta_groups` here. Add an EXTERNAL group name here later once you
-        # want to distribute to external testers.
-        submit_to_testflight: true
+        # want to distribute to external testers (then set this back to true).
+        submit_to_testflight: false

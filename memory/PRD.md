@@ -109,3 +109,4 @@ Take a photo of fridge/cupboard → app tells you 3–5 meal ideas, difficulty, 
 - Pantry memory (track what you have over time)
 - Improve recipe hero image matching (occasional off-topic Unsplash fallback)
 - Multi-language UI
+- 2026-06: Codemagic: added ITSAppUsesNonExemptEncryption=false to Info.plist (export compliance), submit_to_testflight=false (internal testers only)
