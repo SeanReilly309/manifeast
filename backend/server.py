@@ -593,11 +593,28 @@ def _build_steps(raw_steps, fallback_instructions, ingredients_detailed) -> List
                 return f"{entry} {name}".strip()
         return entry
 
+    def _add_quantity_by_name(entry: str) -> str:
+        # "zucchini" → "2 medium zucchini" using the recipe's measured list.
+        if re.search(r"\d", entry) or "to taste" in entry.lower():
+            return entry
+        e = entry.lower().strip()
+        best = None
+        for name in ing_names:
+            if name == e:
+                best = name
+                break
+            if best is None and (e in name or name in e):
+                best = name
+        qty = ing_quantities.get(best, "").strip() if best else ""
+        return f"{qty} {best}".strip() if qty else entry
+
     def _step_ingredients_for(text: str, llm_list) -> List[str]:
         if isinstance(llm_list, list) and llm_list:
             out: List[str] = []
             seen = set()
             for x in llm_list:
+                if isinstance(x, dict):
+                    x = f"{x.get('quantity', '') or ''} {x.get('name', '') or ''}"
                 if not isinstance(x, (str, int, float)):
                     continue
                 entry = str(x).strip()
@@ -607,6 +624,8 @@ def _build_steps(raw_steps, fallback_instructions, ingredients_detailed) -> List
                 # the full ingredient list — e.g. "2" → "2 eggs".
                 if _looks_like_only_quantity(entry):
                     entry = _enrich_against_step_text(entry, text)
+                else:
+                    entry = _add_quantity_by_name(entry)
                 key = entry.lower()
                 if key in seen:
                     continue
@@ -910,7 +929,7 @@ async def ask_recipes(request: Request, req: AskRecipesRequest):
     variant = req.variant if req.variant is not None and 0 <= req.variant < len(ASK_ANGLES) else None
     n = 1 if variant is not None else max(1, min(req.max_recipes, 5))
     angle = (
-        f"Make it {ASK_ANGLES[variant]}. "
+        f"Make it {ASK_ANGLES[variant]}, and make the title clearly reflect that angle. "
         if variant is not None
         else f"Return {n} DIFFERENT variations (classic + twists). "
     )

@@ -110,3 +110,12 @@ Take a photo of fridge/cupboard → app tells you 3–5 meal ideas, difficulty, 
 - Improve recipe hero image matching (occasional off-topic Unsplash fallback)
 - Multi-language UI
 - 2026-06: Codemagic: added ITSAppUsesNonExemptEncryption=false to Info.plist (export compliance), submit_to_testflight=false (internal testers only)
+
+## 2026-06 — Recipe reliability + Ask speed (iteration 19, all flows passed)
+- Ask: 3 parallel single-recipe calls (variant 0/1/2 angles, distinct titles), cards render as each lands (~10s first, ~14s all), 6h server cache, ?q= kept in URL so Back restores results
+- Prompt no longer duplicates `instructions` (fewer tokens); salt/pepper with no quantity → "to taste"; step ingredients get quantities from ingredients_detailed
+- Inspire/Ask cache hits re-filtered by _is_cookable; startup pass soft-retires incomplete recipes_store docs (retired flag → 404) and expires weak inspire_cache categories
+- Frontend: isCompleteRecipe (lib/recipeComplete.js) filters Inspire pools; findRecipe ignores incomplete local copies → backend fetch; Inspire LS key v3 (v2 purged)
+- Rate limits: recipe 600/h, ask 180/h, inspire 150/h
+- Production/TestFlight get these only after redeploy + Save to Github/Codemagic build
+- Open: Ask→Back fix untested by agent; loremflickr chicken fallback photo on non-chicken dishes

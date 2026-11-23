@@ -1,0 +1,37 @@
+{
+  "summary": "Iteration 19 tested the Inspire full-recipe fix, the stale local-copy fallback, and Ask parallel variants, on the backend and in the UI at 390x844. BACKEND: 13/13 pass in test_ask_variants_and_recipe_fetch.py, with a new legacy no-variant test added. The 3 parallel ask variants returned 200 in 8.9s, 10.5s and 11.2s; each returned 1 complete recipe. Cache hits come back in under 3s with the same ids. Legacy max_recipes=2 without a variant works. Every Inspire recipe in all 5 categories is complete and fetchable via GET /api/recipe/{id} with the same title. A random uuid returns 404 and an empty query returns 400/422. FRONTEND: tested 30 unique Inspire recipes, 6 per category with 3 initial cards plus 3 after shuffle. All 30 passed: card title = detail h1 = cook-recipe-title, N is 3 to 11 steps, Prev is disabled on step 1, Next and Prev work, and Finish shows on the last step. 'Couldn't load this recipe.' never appeared. Stale-data test: incomplete copies (steps:[] and instructions:[]) in manifeast_recent_recipes_v2 and wcie_recipes were ignored. The app called GET /api/recipe/<id> and Cook Mode loaded 'Step 1 of 10', and the recent cache was overwritten with the full copy (10 steps). The old key manifeast_inspire_cache_v2 was removed after visiting Inspire, and v3 is present. A deep link with localStorage cleared loads from the backend. An invalid id shows cook-error 'Recipe not found.' with cook-retry-btn. ASK: exactly 3 POSTs were sent (variants 0, 1 and 2, max_recipes=1). Clicking again and pressing Enter while pending sent no duplicates. 3 skeletons showed and ask-btn was disabled. The first card appeared at 10.9s with 'N ready · more on the way', all 3 by 13.5s, then '3 takes on'. Each Ask card opens detail and Cook Mode with the matching title (7, 7 and 8 steps). The repeat query took 0.3s.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/ask-recipes variant 0/1", "issue": "Variants can return the SAME title. In pytest, 'TEST lemon garlic shrimp pasta' gave variant0='Lemon Garlic Shrimp Pasta' and variant1='Lemon Garlic Shrimp Pasta'. Ask.jsx dedupes by title, so the user would see only 2 cards ('2 takes on') and wait for a third skeleton that silently disappears. Fix: tell the LLM to put the angle in the title (e.g. 'Quick ...'), or dedupe by id instead of title, or make the title unique server-side."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "CookMode 'You'll use' list", "issue": "Step-level ingredients are often bare names with no quantity (e.g. Zucchini Fritters step 1 'zucchini', Korean Pancakes 'scallions, carrot', Mediterranean Quinoa Salad 'Quinoa'), or a quantity with no name (Banana Pancakes '1 cup'). The data in ingredients_detailed does have quantities. Fix: when a step ingredient string has no quantity, match it to ingredients_detailed by name and show that quantity, and/or tighten the prompt so step ingredients carry {name, quantity}.", "selector": "[data-testid^='cook-step-ingredient-']", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [
+      {"flow": "Ask -> card -> back", "issue": "Results are lost when the user returns to /ask (browser back or nav) after opening a card from a typed query, because the URL has no ?q=. The user has to search again. Fix: push ?q=<query> on search (the cache makes the re-run instant) or keep results in context.", "affected_selectors": ["[data-testid='ask-results']"]}
+    ],
+    "design_issues": [
+      {"screen": "CookMode header / cards", "issues": ["In the test browser, loremflickr images often fall back to FALLBACK_PHOTOS[0] (sliced chicken), so a Chia Seed Pudding or Buddha Bowl shows a chicken photo in the cook header. Use a category-aware fallback or a neutral gradient."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_ask_variants_and_recipe_fetch.py", "/app/test_reports/pytest/iter19.xml"],
+  "action_items": [
+    "Make Ask variant titles distinct, or dedupe by id, so 3 cards always show",
+    "CookMode: show quantities for step ingredients by matching them to ingredients_detailed",
+    "Ask: keep results when returning from detail (?q= in the URL)"
+  ],
+  "critical_code_review_comments": [
+    "Frontend isCompleteRecipe is weaker than backend _is_cookable (no check on time_minutes, servings or step metadata). That is OK as a stale-copy guard, but the two differ.",
+    "useRecipe fires GET /api/recipe/<id> twice on deep link (StrictMode or the effect re-running). Harmless, but it counts double against the 600/h limit.",
+    "server.py is 1567 lines; split it into routers/modules."
+  ],
+  "updated_files": ["/app/backend/tests/test_ask_variants_and_recipe_fetch.py"],
+  "success_rate": {"backend": "100%", "frontend": "100% of requested flows (3 minor UX issues)"},
+  "seed_data_creation": "Only TEST_-like ask queries ('TEST lemon garlic shrimp pasta xxxx', 'lamb kofta ember507'), which went into ask_cache/recipes_store. No seed data was modified.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run pytest with REACT_APP_BACKEND_URL exported, -p no:xdist -o addopts=''. Inspire PAGE_SIZE=3; shuffle shows the next 3. The cursor resets on remount, so testing 6 per category works by going back to /inspire, clicking the tab and shuffling N times. Card title = img alt. A known good recipe id is c71c5ffe-d250-4e3a-91e2-67c416f54ab5 (Italian Baked Ziti)."
+}

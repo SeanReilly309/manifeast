@@ -42,6 +42,10 @@ export default function Ask() {
     setResults([]);
     setLastQuery(clean);
     setPending(VARIANTS);
+    // Keep the query in the URL so Back from a recipe re-shows results (cached server-side).
+    if (new URLSearchParams(location.search).get("q") !== clean) {
+      navigate(`/ask?q=${encodeURIComponent(clean)}`, { replace: true });
+    }
 
     const isTransient = (err) => {
       const status = err?.response?.status;
@@ -69,8 +73,8 @@ export default function Ask() {
             if (incoming.length === 0) return;
             rememberRecipes(incoming);
             setResults((prev) => {
-              const titles = new Set(prev.map((r) => (r.title || "").toLowerCase()));
-              const next = [...prev, ...incoming.filter((r) => !titles.has((r.title || "").toLowerCase()))];
+              const ids = new Set(prev.map((r) => r.id));
+              const next = [...prev, ...incoming.filter((r) => !ids.has(r.id))];
               setRecipes(next);
               return next;
             });
@@ -94,7 +98,7 @@ export default function Ask() {
         "Search failed";
       toast.error(detail);
     }
-  }, [pending, setRecipes, rememberRecipes]);
+  }, [pending, setRecipes, rememberRecipes, location.search, navigate]);
 
   // Auto-run search if URL has ?q=
   useEffect(() => {

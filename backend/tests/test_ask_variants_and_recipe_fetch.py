@@ -72,6 +72,15 @@ class TestAskVariants:
         assert r.status_code == 200
 
 
+    def test_legacy_no_variant(self):
+        # Legacy call without variant -> max_recipes recipes
+        r = requests.post(f"{BASE_URL}/api/ask-recipes", json={"query": QUERY + " legacy", "max_recipes": 2}, timeout=110)
+        assert r.status_code == 200, r.text[:300]
+        recs = r.json()["recipes"]
+        assert 1 <= len(recs) <= 2
+        assert all(_cookable(x) for x in recs)
+
+
 # --- GET recipe ---
 class TestRecipeFetch:
     def test_unknown_id_404(self):
@@ -89,7 +98,7 @@ class TestInspire:
         assert len(recs) >= 3
         bad = [x["title"] for x in recs if not _cookable(x)]
         assert not bad, bad
-        for x in recs[:6]:
+        for x in recs:
             g = requests.get(f"{BASE_URL}/api/recipe/{x['id']}", timeout=20)
             assert g.status_code == 200, x["id"]
             assert g.json()["title"] == x["title"]
